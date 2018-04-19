@@ -1,2 +1,2 @@
 # event-lang
-A language for synchronizable events
+Synchronizable event programming
