@@ -43,11 +43,10 @@ set of combinators. An equivalent event can always be constructed manually
 with the provided combinators.
 
 @racketblock[
-  (bind (return 3)
-        (λ (x)
-          (bind (return 2)
-                (λ (y)
-                  (pure (+ x y))))))
+  (bind (λ (x)
+          (bind (λ (y) (pure (+ x y)))
+                (return 2)))
+        (return 3))
 ]
 
 @section{Event Construction}
@@ -175,14 +174,13 @@ All of the bindings defined in this manual are exported by the
 }
 
 @deftogether[(
-  @defproc[(bind [V evt?] ... [f (-> any/c ... evt?)]) evt?]
-  @defproc[(bind* [Vs (listof evt?)] [f (-> any/c ... evt?)]) evt?]
+  @defproc[(bind [f (-> any/c ... evt?)] [V evt?] ...) evt?]
+  @defproc[(bind* [f (-> any/c ... evt?)] [Vs (listof evt?)]) evt?]
 )]{
 
   Returns a @rtech{synchronizable event} that synchronizes @racket[#,(var V)
-  #,(var ...)] or @var[Vs] in order and then replaces itself with the event
-  returned from applying @var[f] to a list of the @rtech{synchronization
-  results}.
+  #,(var ...)] or @var[Vs] in order and then becomes the event returned from
+  applying @var[f] to a list of the @rtech{synchronization results}.
 
 }
 

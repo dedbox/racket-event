@@ -20,7 +20,7 @@
    [pattern (#%event-app (#%event-lambda ~! xs e) y:event2 ...)
             #:with f:event2 #'(#%event-lambda xs e)
             #:attr final
-            #'(bind y.final ... f.final)]
+            #'(bind f.final y.final ...)]
 
    [pattern (#%event-pure ~! e) #:attr final #'(pure e)]
    [pattern (#%event-app ~! e:event2 ...+) #:attr final #'(app e.final ...)]
@@ -34,7 +34,7 @@
    [pattern (#%event-let-values ~! ([xs vs:event2] ys ...) e ...+)
             #:with ws:event2 #'(#%event-let-values (ys ...) e ...)
             #:attr final
-            #'(bind vs.final (λ xs ws.final))]
+            #'(bind (λ xs ws.final) vs.final)]
 
    [pattern (#%event-lambda ~! xs e:event2)
             #:attr final

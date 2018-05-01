@@ -37,11 +37,11 @@
 (define (app* F Vs)
   (replace F (λ (f) (fmap* f Vs))))
 
-(define (bind . Vs-to-f)
-  (bind* (drop-right Vs-to-f 1) (last Vs-to-f)))
+(define (bind f . Es)
+  (bind* f Es))
 
-(define (bind* Vs f)
-  (replace (args* Vs) f))
+(define (bind* f Es)
+  (replace (args* Es) f))
 
 (define (seq V . Vs)
   (if (null? Vs) V (replace V (λ _ (apply seq Vs)))))
@@ -135,7 +135,7 @@
     (for ([a 10])
       (check
        = (add1 a)
-       (sync (bind (return a) k))
+       (sync (bind k (return a)))
        (sync (k a)))))
 
   (test-case
@@ -143,7 +143,7 @@
     (for ([m 10])
       (check
        = m
-       (sync (bind (pure m) return))
+       (sync (bind return (pure m)))
        (sync (pure m)))))
 
   (test-case
@@ -153,8 +153,8 @@
     (for ([m 10])
       (check
        = (+ 2 (* 3 m))
-       (sync (bind (pure m) (λ (x) (bind (k x) h))))
-       (sync (bind (bind (pure m) k) h)))))
+       (sync (bind (λ (x) (bind h (k x))) (pure m)))
+       (sync (bind h (bind k (pure m)))))))
 
   (test-case
     "seq"
