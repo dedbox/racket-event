@@ -171,6 +171,9 @@ All of the bindings defined in this manual are exported by the
   @rtech{synchronization result} of the former to a list of the
   @rtech{synchronization results} of the latter.
 
+  @example[
+    (sync (app (pure +) (pure 1) (pure 2) (pure 3)))
+  ]
 }
 
 @deftogether[(
@@ -182,6 +185,10 @@ All of the bindings defined in this manual are exported by the
   #,(var ...)] or @var[Vs] in order and then becomes the event returned from
   applying @var[f] to a list of the @rtech{synchronization results}.
 
+  @example[
+    (sync (bind (λ xs (pure (apply + xs)))
+                (pure 1) (pure 2) (pure 3)))
+  ]
 }
 
 @defproc[(seq [V evt?] ...+) evt?]{
@@ -190,6 +197,9 @@ All of the bindings defined in this manual are exported by the
   #,(var ...)] in order and then uses the @rtech{synchronization result} of
   the final @var[V] as its own.
 
+  @example[
+    (sync (seq (pure 1) (pure 2) (pure 3)))
+  ]
 }
 
 @defproc[(seq0 [V evt?] ...+) evt?]{
@@ -198,6 +208,9 @@ All of the bindings defined in this manual are exported by the
   #,(var ...)] in order and then uses the @rtech{synchronization result} of
   the first @var[V] as its own.
 
+  @example[
+    (sync (seq0 (pure 1) (pure 2) (pure 3)))
+  ]
 }
 
 @defproc[(test [E1 evt?] [E2 evt?] [E3 evt?]) evt?]{
@@ -205,6 +218,12 @@ All of the bindings defined in this manual are exported by the
   Returns a @rtech{synchronizable event} that becomes either @var[E2] or
   @var[E3]. If the @rtech{synchronization result} of @var[E1] is not
   @racket[#f], it becomes @var[E2]. Otherwise, it becomes @var[E3].
+
+  @example[
+    (sync (test (pure #t) (pure 'L) (pure 'R)))
+    (sync (test (pure #f) (pure 'L) (pure 'R)))
+  ]
+}
 
 @deftogether[(
   @defproc[(series [V evt?] [f (-> any/c evt)] ...) evt?]
