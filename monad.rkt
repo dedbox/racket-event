@@ -13,29 +13,29 @@
 (define (return v)
   (pure v))
 
-(define (args . Vs)
-  (args* Vs))
+(define (args . Es)
+  (args* Es))
 
-(define (args* Vs)
-  (if (null? Vs)
+(define (args* Es)
+  (if (null? Es)
       (pure (values))
-      (replace (car Vs)
+      (replace (car Es)
                (λ v
                  (fmap*
                   (λ vs (apply values (append v vs)))
-                  (cdr Vs))))))
+                  (cdr Es))))))
 
-(define (fmap f . Vs)
-  (fmap* f Vs))
+(define (fmap f . Es)
+  (fmap* f Es))
 
-(define (fmap* f Vs)
-  (handle (args* Vs) f))
+(define (fmap* f Es)
+  (handle (args* Es) f))
 
-(define (app F . Vs)
-  (app* F Vs))
+(define (app F . Es)
+  (app* F Es))
 
-(define (app* F Vs)
-  (replace F (λ (f) (fmap* f Vs))))
+(define (app* F Es)
+  (replace F (λ (f) (fmap* f Es))))
 
 (define (bind f . Es)
   (bind* f Es))
@@ -43,28 +43,39 @@
 (define (bind* f Es)
   (replace (args* Es) f))
 
-(define (seq V . Vs)
-  (if (null? Vs) V (replace V (λ _ (apply seq Vs)))))
+(define (seq E . Es)
+  (if (null? Es) E (replace E (λ _ (apply seq Es)))))
 
-(define (seq0 V . Vs)
-  (replace V (λ (v) (handle (args* Vs) (λ _ v)))))
+(define (seq0 E . Es)
+  (replace E (λ (v) (handle (args* Es) (λ _ v)))))
 
-(define (test V1 V2 V3)
-  (bind V1 (λ (v) (if v V2 V3))))
+(define (test E1 E2 E3)
+  (replace E1 (λ (v) (if v E2 E3))))
 
-(define (series V . fs)
-  (series* V fs))
+(define (series E . fs)
+  (series* E fs))
 
-(define (series* V fs)
+(define (series* E fs)
   (if (null? fs)
-      V
-      (replace V (λ (v) (apply series ((car fs) v) (cdr fs))))))
+      E
+      (replace E (λ vs (series* (apply (car fs) vs) (cdr fs))))))
 
-(define (reduce f x check)
-  (replace (f x) (λ (y) (if (check x y) (pure y) (reduce f y check)))))
+(define (reduce f check . vs)
+  (reduce* f check vs))
 
-(define (loop f x)
-  (reduce f x (λ _ #f)))
+(define (reduce* f check vs)
+  (replace
+   (apply f vs)
+   (λ vs*
+     (if (apply check (append vs vs*))
+         (pure (apply values vs*))
+         (reduce* f check vs*)))))
+
+(define (loop f . vs)
+  (loop* f vs))
+
+(define (loop* f vs)
+  (reduce* f (λ _ #f) vs))
 
 ;;; Unit Tests
 
@@ -190,8 +201,8 @@
      (sync
       (reduce
        (λ (x) (pure (add1 x)))
-       0
-       (λ (_ y) (>= y 10))))))
+       (λ (x y) (>= y 10))
+       0))))
 
   (test-case
     "loop"
@@ -199,4 +210,9 @@
      = 10
      (with-handlers ([number? values])
        (sync
-        (loop (λ (x) (if (< x 10) (pure (add1 x)) (raise x))) 0))))))
+        (loop
+         (λ (x)
+           (if (< x 10)
+               (pure (add1 x))
+               (raise x)))
+         0))))))
