@@ -1,11 +1,35 @@
 #lang racket/base
 
-(provide (all-defined-out))
-
 (require
  event/renames
- racket/function
- racket/list)
+ racket/contract/base
+ racket/function)
+
+(provide
+ pure
+ (contract-out
+  [return (-> any/c evt?)]
+  [args (-> evt? ... evt?)]
+  [args* (-> (listof evt?) evt?)]
+  [fmap (-> (-> any/c ... any) evt? ... evt?)]
+  [fmap* (-> (-> any/c ... any) (listof evt?) evt?)]
+  [app (-> evt? evt? ... evt?)]
+  [app* (-> evt? (listof evt?) evt?)]
+  [bind (-> (unconstrained-domain-> evt?) evt? ... evt?)]
+  [bind* (-> (unconstrained-domain-> evt?) (listof evt?) evt?)]
+  [seq (-> evt? evt? ... evt?)]
+  [seq0 (-> evt? evt? ... evt?)]
+  [test (-> evt? evt? evt? evt?)]
+  [series (-> evt? (-> any/c evt?) ... evt?)]
+  [series* (-> evt? (listof (-> any/c evt?)) evt?)]
+  [reduce (-> (unconstrained-domain-> evt?)
+              (unconstrained-domain-> boolean?)
+              any/c ... evt?)]
+  [reduce* (-> (unconstrained-domain-> evt?)
+               (unconstrained-domain-> boolean?)
+               (listof any/c) evt?)]
+  [loop (-> (unconstrained-domain-> evt?) any/c ... evt?)]
+  [loop* (-> (unconstrained-domain-> evt?) (listof any/c) evt?)]))
 
 (define-syntax-rule (pure datum)
   (handle always (λ _ datum)))
