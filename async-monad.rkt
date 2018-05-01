@@ -1,25 +1,43 @@
 #lang racket/base
 
-(provide (all-defined-out))
-
 (require
  event/monad
  event/renames
+ racket/contract/base
  racket/list
  (for-syntax racket/base
              syntax/parse))
 
-(define (async-args . Vs)
-  (async-args* Vs))
+(provide
+ async-let
+ (contract-out
+  [async-args (-> evt? ... evt?)]
+  [async-args* (-> (listof evt?) evt?)]
+  [async-fmap (-> (-> any/c ... any) evt? ... evt?)]
+  [async-fmap* (-> (-> any/c ... any) (listof evt?) evt?)]
+  [async-app (-> evt? evt? ... evt?)]
+  [async-app* (-> evt? (listof evt?) evt?)]
+  [async-bind (-> (unconstrained-domain-> evt?) evt? ... evt?)]
+  [async-bind* (-> (unconstrained-domain-> evt?) (listof evt?) evt?)]
+  [async-set (-> evt? ... evt?)]
+  [async-set* (-> (listof evt?) evt?)]))
 
-(define (async-args* Vs)
-  (define vs (make-vector (length Vs) '?))
+(define-syntax (async-let stx)
+  (syntax-parse stx
+    [(_ ([x:id V] ...) E ...+)
+     #'(async-bind (λ (x ...) (seq E ...)) V ...)]))
+
+(define (async-args . Es)
+  (async-args* Es))
+
+(define (async-args* Es)
+  (define vs (make-vector (length Es) '?))
   (define Hs (make-vector (vector-length vs) #f))
-  (for/list ([V Vs]
+  (for/list ([E Es]
              [k (vector-length vs)])
     (vector-set!
      Hs k
-     (handle V (λ (v)
+     (handle E (λ (v)
                  (vector-set! vs k v)
                  (vector-set! Hs k #f)))))
   (let loop ()
@@ -28,40 +46,38 @@
         (pure (apply values (vector->list vs)))
         (replace (apply choice evts) (λ _ (loop))))))
 
-(define (async-fmap f . Vs)
-  (async-fmap* f Vs))
+(define (async-fmap f . Es)
+  (async-fmap* f Es))
 
-(define (async-fmap* f Vs)
-  (handle (async-args* Vs) f))
+(define (async-fmap* f Es)
+  (handle (async-args* Es) f))
 
-(define (async-app F . Vs)
-  (async-app* F Vs))
+(define (async-app F . Es)
+  (async-app* F Es))
 
-(define (async-app* F Vs)
-  (replace F (λ (f) (async-fmap* f Vs))))
+(define (async-app* F Es)
+  (replace F (λ (f) (async-fmap* f Es))))
 
-(define (async-bind f . Vs)
-  (async-bind* f Vs))
+(define (async-bind f . Es)
+  (async-bind* f Es))
 
-(define (async-bind* f Vs)
-  (replace (async-args* Vs) f))
+(define (async-bind* f Es)
+  (replace (async-args* Es) f))
 
-(define (async-set . Vs)
-  (define (one-of Vs)
-    (apply choice (map (λ (V) (handle V (λ (v) (cons V v)))) Vs)))
-  (let loop ([Vs Vs]
+(define (async-set . Es)
+  (async-set* Es))
+
+(define (async-set* Es)
+  (define (one-of Es)
+    (apply choice (map (λ (E) (handle E (λ (v) (cons E v)))) Es)))
+  (let loop ([Es Es]
              [vs null])
-    (if (null? Vs)
+    (if (null? Es)
         (pure (apply values (reverse vs)))
-        (replace (one-of Vs)
-                 (λ (V+v)
-                   (loop (remq (car V+v) Vs)
-                         (cons (cdr V+v) vs)))))))
-
-(define-syntax (async-let stx)
-  (syntax-parse stx
-    [(_ ([x:id V] ...) E ...+)
-     #'(async-bind (λ (x ...) (seq E ...)) V ...)]))
+        (replace (one-of Es)
+                 (λ (E+v)
+                   (loop (remq (car E+v) Es)
+                         (cons (cdr E+v) vs)))))))
 
 ;;; Unit Tests
 
@@ -77,6 +93,24 @@
       (define (reset) (set! L null))
       (define (push x) (set! L (cons x L)))
       body ...))
+
+  (async-test-case
+   "async-let"
+   L reset push
+   (let loop ()
+     (reset)
+     (check
+      = 3
+      (sync (async-let
+             ([x (seq (pure (push 0)) (pure 0))]
+              [y (seq (pure (push 1)) (pure 1))]
+              [z (seq (pure (push 2)) (pure 2))])
+             (pure (+ x y z)))))
+     (check = (length L) 3)
+     (for ([j 3])
+       (check-pred (curry member j) L))
+     (when (equal? L '(0 1 2))
+       (loop))))
 
   (async-test-case
    "async-args"
@@ -107,24 +141,6 @@
          (check-pred (curry member j) ys))
        (when (and (> k 1) (equal? ys xs))
          (loop)))))
-
-  (async-test-case
-   "async-let"
-   L reset push
-   (let loop ()
-     (reset)
-     (check
-      = 3
-      (sync (async-let
-             ([x (seq (pure (push 0)) (pure 0))]
-              [y (seq (pure (push 1)) (pure 1))]
-              [z (seq (pure (push 2)) (pure 2))])
-             (pure (+ x y z)))))
-     (check = (length L) 3)
-     (for ([j 3])
-       (check-pred (curry member j) L))
-     (when (equal? L '(0 1 2))
-       (loop))))
 
   (define id values)
 
