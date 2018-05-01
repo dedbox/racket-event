@@ -27,6 +27,21 @@
     [(_ ([x:id V] ...) E ...+)
      #'(async-bind (λ (x ...) (seq E ...)) V ...)]))
 
+(define (async-set . Es)
+  (async-set* Es))
+
+(define (async-set* Es)
+  (define (one-of Es)
+    (apply choice (map (λ (E) (handle E (λ (v) (cons E v)))) Es)))
+  (let loop ([Es Es]
+             [vs null])
+    (if (null? Es)
+        (pure (apply values (reverse vs)))
+        (replace (one-of Es)
+                 (λ (E+v)
+                   (loop (remq (car E+v) Es)
+                         (cons (cdr E+v) vs)))))))
+
 (define (async-args . Es)
   (async-args* Es))
 
@@ -63,21 +78,6 @@
 
 (define (async-bind* f Es)
   (replace (async-args* Es) f))
-
-(define (async-set . Es)
-  (async-set* Es))
-
-(define (async-set* Es)
-  (define (one-of Es)
-    (apply choice (map (λ (E) (handle E (λ (v) (cons E v)))) Es)))
-  (let loop ([Es Es]
-             [vs null])
-    (if (null? Es)
-        (pure (apply values (reverse vs)))
-        (replace (one-of Es)
-                 (λ (E+v)
-                   (loop (remq (car E+v) Es)
-                         (cons (cdr E+v) vs)))))))
 
 ;;; Unit Tests
 
