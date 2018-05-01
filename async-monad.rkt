@@ -40,10 +40,10 @@
 (define (async-app* F Vs)
   (replace F (λ (f) (async-fmap* f Vs))))
 
-(define (async-bind . Vs-to-f)
-  (async-bind* (drop-right Vs-to-f 1) (last Vs-to-f)))
+(define (async-bind f . Vs)
+  (async-bind* f Vs))
 
-(define (async-bind* Vs f)
+(define (async-bind* f Vs)
   (replace (async-args* Vs) f))
 
 (define (async-set . Vs)
@@ -53,18 +53,15 @@
              [vs null])
     (if (null? Vs)
         (pure (apply values (reverse vs)))
-        (bind (one-of Vs)
-              (λ (V+v)
-                (loop (remq (car V+v) Vs)
-                      (cons (cdr V+v) vs)))))))
+        (replace (one-of Vs)
+                 (λ (V+v)
+                   (loop (remq (car V+v) Vs)
+                         (cons (cdr V+v) vs)))))))
 
 (define-syntax (async-let stx)
   (syntax-parse stx
     [(_ ([x:id V] ...) E ...+)
-     #'(async-bind
-        V ...
-        (λ (x ...)
-          (seq E ...)))]))
+     #'(async-bind (λ (x ...) (seq E ...)) V ...)]))
 
 ;;; Unit Tests
 
@@ -203,7 +200,7 @@
       (define As (map return as))
       (check
        = (apply + as)
-       (sync (async-bind* As k))
+       (sync (async-bind* k As))
        (sync (apply k as)))))
 
   (test-case
@@ -213,7 +210,7 @@
       (define Ms (map return ms))
       (check
        equal? ms
-       (sync (async-bind* Ms (compose return list))))))
+       (sync (async-bind* (compose return list) Ms)))))
 
   (test-case
     "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
@@ -224,5 +221,5 @@
       (define Ms (map return ms))
       (check
        = (* 2 (apply + ms))
-       (sync (async-bind* Ms (λ ys (async-bind (apply k ys) h))))
-       (sync (async-bind (async-bind* Ms k) h))))))
+       (sync (async-bind* (λ ys (async-bind h (apply k ys))) Ms))
+       (sync (async-bind h (async-bind* k Ms)))))))
