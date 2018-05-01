@@ -10,6 +10,8 @@
              racket/base
              racket/contract/base))
 
+@(random-seed 3)
+
 @(define (rtech . args)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") args))
 
@@ -295,6 +297,107 @@ All of the bindings defined in this manual are exported by the
   ]
 }
 
-@section{Asynchronous Combinators}
+@section{Concurrent Combinators}
 
 @defmodule[event/async-monad]
+
+@defform[(async-let ([x Ex] ...) E ...+)]{
+
+  Produces a @rtech{synchronizable event} that synchronizes @racket[#,(var Ex)
+  #,(var ...)] concurrently, binds the @rtech{synchronization results} to
+  @racket[#,(var x) #,(var ...)] internally, then becomes @racket[(seq #,(var
+  E) #,(var ...))].
+
+  @example[
+    (sync
+     (async-let
+         ([x (seq (pure (print 1)) (pure 1))]
+          [y (seq (pure (print 2)) (pure 2))]
+          [z (seq (pure (print 3)) (pure 3))])
+       (pure (values x y z))))
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-set [E evt?] ...) evt?]
+  @defproc[(async-set* [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @racket[#,(var E)
+  #,(var ...)] or @var[Es] concurrently and then applies @racket[values] to a
+  list of the @rtech{synchronization results} in order of completion.
+
+  @example[
+    (define evt
+      (handle-evt (async-set (pure 1) (pure 2) (pure 3)) list))
+    (sync evt)
+    (sync evt)
+    (sync evt)
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-args [E evt?] ...) evt?]
+  @defproc[(async-args* [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that evaluates @racket[#,(var E)
+  #,(var ...)] or @var[Es] concurrently and then applies @racket[values] to a
+  list of the @rtech{synchronization results} in the order defined.
+
+  @example[
+    (define evt
+      (handle-evt
+       (async-args (pure 1) (pure 2) (pure 3))
+       list))
+    (sync evt)
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-fmap [f (-> any/c ... any)] [E evt?] ...) evt?]
+  @defproc[(async-fmap* [f (-> any/c ... any)] [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @racket[#,(var E)
+  #,(var ...)] or @var[Vs] concurrently and then applies @var[f] to a list of
+  the @rtech{synchronization results}.
+
+  @example[
+    (sync (async-fmap + (pure 1) (pure 2) (pure 3)))
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-app [F evt?] [E evt?] ...) evt?]
+  @defproc[(async-app* [F evt?] [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @var[F] and
+  @racket[#,(var E) #,(var ...)] or @var[Es] concurrently and then applies the
+  @rtech{synchronization result} of the former to a list of the
+  @rtech{synchronization results} of the latter.
+
+  @example[
+    (sync (async-app (pure +) (pure 1) (pure 2) (pure 3)))
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-bind [f (-> any/c ... evt?)] [E evt?] ...) evt?]
+  @defproc[(async-bind* [f (-> any/c ... evt?)] [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @racket[#,(var E)
+  #,(var ...)] or @var[Es] concurrently and then becomes the event returned
+  from applying @var[f] to a list of the @rtech{synchronization results}.
+
+  @example[
+    (sync
+     (async-bind
+      (compose return list)
+      (seq (pure (print 1)) (pure 1))
+      (seq (pure (print 2)) (pure 2))
+      (seq (pure (print 3)) (pure 3))))
+  ]
+}
