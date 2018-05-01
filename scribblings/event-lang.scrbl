@@ -35,7 +35,7 @@ Racket syntax. For example,
 @racketblock[(event (let ([x 3] [y 2]) (+ x y)))]
 
 creates an event that binds @racket[x] and @racket[y] to numbers internally
-and then uses the sum as its @rtech{synchronization result}.
+and then uses their sum as its @rtech{synchronization result}.
 
 The @racket[event] form recursively rewrites its input expression into a
 @rtech{synchronizable event} that uses a primitive lifting form and a small
@@ -167,7 +167,7 @@ All of the bindings defined in this manual are exported by the
 )]{
 
   Returns a @rtech{synchronizable event} that synchronizes @var[F] and
-  @racket[#,(var V) #,(var ...)] (or @var[Vs]) in order and then applies the
+  @racket[#,(var V) #,(var ...)] or @var[Vs] in order and then applies the
   @rtech{synchronization result} of the former to a list of the
   @rtech{synchronization results} of the latter.
 
