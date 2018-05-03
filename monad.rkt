@@ -107,7 +107,96 @@
   (require rackunit)
 
   (define id values)
-  
+
+  ;; doc examples
+
+  (test-case
+    "pure"
+    (define N 0)
+    (define evt (pure (set! N (add1 N))))
+    (sync evt)
+    (sync evt)
+    (check = N 2))
+
+  (test-case
+    "return"
+    (define N 0)
+    (define evt (return (set! N (add1 N))))
+    (sync evt)
+    (sync evt)
+    (check = N 1))
+
+  (test-case
+    "args"
+    (check equal?
+           (sync (handle (args (pure 1) (pure 2) (pure 3)) list))
+           '(1 2 3)))
+
+  (test-case
+    "fmap"
+    (check = (sync (fmap + (pure 1) (pure 2) (pure 3))) 6))
+
+  (test-case
+    "app"
+    (check = (sync (app (pure +) (pure 1) (pure 2) (pure 3))) 6))
+
+  (test-case
+    "bind"
+    (check =
+           (sync
+            (bind
+             (compose return +)
+             (pure 1)
+             (pure 2)
+             (pure 3)))
+           6))
+
+  (test-case
+    "seq"
+    (check = (sync (seq (pure 1) (pure 2) (pure 3))) 3))
+
+  (test-case
+    "seq0"
+    (check = (sync (seq0 (pure 1) (pure 2) (pure 3))) 1))
+
+  (test-case
+    "test"
+    (check = (sync (test (pure #t) (pure 1) (pure 2))) 1)
+    (check = (sync (test (pure #f) (pure 1) (pure 2))) 2))
+
+  (test-case
+    "series"
+    (check =
+           (sync
+            (series
+             (pure 1)
+             (compose return (curry + 2))
+             (compose return (curry * 3))))
+           9))
+
+  (test-case
+    "reduce"
+    (check =
+           (sync
+            (reduce
+             (λ (x) (pure (add1 x)))
+             (λ (x y) (>= y 10))
+             0))
+           10))
+
+  (test-case
+    "loop"
+    (check =
+           (with-handlers ([number? values])
+             (sync (loop (λ (x)
+                           (if (< x 10)
+                               (pure (add1 x))
+                               (raise x)))
+                         0)))
+           10))
+
+  ;; monad laws
+
   (test-case
     "fmap id == id"
     (for ([v 10])
