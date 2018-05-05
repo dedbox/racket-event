@@ -4,13 +4,14 @@
  event/monad
  event/renames
  racket/contract/base
- racket/list
  (for-syntax racket/base
              syntax/parse))
 
 (provide
  async-let
  (contract-out
+  [async-set (-> evt? ... evt?)]
+  [async-set* (-> (listof evt?) evt?)]
   [async-args (-> evt? ... evt?)]
   [async-args* (-> (listof evt?) evt?)]
   [async-fmap (-> (-> any/c ... any) evt? ... evt?)]
@@ -18,9 +19,7 @@
   [async-app (-> evt? evt? ... evt?)]
   [async-app* (-> evt? (listof evt?) evt?)]
   [async-bind (-> (unconstrained-domain-> evt?) evt? ... evt?)]
-  [async-bind* (-> (unconstrained-domain-> evt?) (listof evt?) evt?)]
-  [async-set (-> evt? ... evt?)]
-  [async-set* (-> (listof evt?) evt?)]))
+  [async-bind* (-> (unconstrained-domain-> evt?) (listof evt?) evt?)]))
 
 (define-syntax (async-let stx)
   (syntax-parse stx
@@ -112,6 +111,21 @@
      (when (equal? L '(0 1 2))
        (loop))))
 
+  (test-case
+   "async-set"
+   (for ([k 10])
+     (define xs (build-list k values))
+     (define Xs (map return xs))
+     (let loop ()
+       (define ys (sync (handle (apply async-set Xs) list)))
+       (check = (length ys) k)
+       (for ([j k])
+         (check-pred (curry member j) ys))
+       (when (and (> k 1) (equal? ys xs))
+         (loop)))))
+
+  (define id values)
+
   (async-test-case
    "async-args"
    L reset push
@@ -128,21 +142,6 @@
      (check-pred (curry member 3) L)
      (when (equal? L '(1 2 3))
        (loop))))
-
-  (test-case
-   "async-set"
-   (for ([k 10])
-     (define xs (build-list k values))
-     (define Xs (map return xs))
-     (let loop ()
-       (define ys (sync (handle (apply async-set Xs) list)))
-       (check = (length ys) k)
-       (for ([j k])
-         (check-pred (curry member j) ys))
-       (when (and (> k 1) (equal? ys xs))
-         (loop)))))
-
-  (define id values)
 
   (test-case
     "async-fmap id == id"
@@ -238,4 +237,5 @@
       (check
        = (* 2 (apply + ms))
        (sync (async-bind* (λ ys (async-bind h (apply k ys))) Ms))
-       (sync (async-bind h (async-bind* k Ms)))))))
+       (sync (async-bind h (async-bind* k Ms))))))
+  )
