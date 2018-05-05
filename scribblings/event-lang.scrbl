@@ -33,11 +33,11 @@
 
 Event-lang is a DSL for creating @rtech{synchronizable events}.
 
-The @racketmodname[event/monad] module provides the @racket[pure] primitive
-lifting form and a set of sequential combinators. The @racketmodname[event]
-module re-exports these bindings and includes a sophisticated @racket[event]
-constructor. The @racketmodname[event/async-monad] provides concurrent
-alternatives for some of the sequential combinators.
+The @racketmodname[event/sequential] module provides the @racket[pure]
+primitive lifting form and a set of sequential combinators. The
+@racketmodname[event] module re-exports these bindings and includes a
+sophisticated @racket[event] constructor. The @racketmodname[event/concurrent]
+module provides concurrent variants of the sequential combinators.
 
 The @racket[event] form takes an ordinary Racket expression, auto-lifts
 sub-expressions into sub-events, and produces an event that, when synchronized
@@ -103,7 +103,7 @@ with the evaluation result as its @rtech{synchronization result}.
 
 @section{Sequential Combinators}
 
-@defmodule[event/monad]
+@defmodule[event/sequential]
 
 @defform[(pure datum)]{
 

@@ -1,17 +1,20 @@
 #lang racket/base
 
-(provide
- event event-do event-print event-debug
- (all-from-out event/monad))
-
 (require
- event/monad
+ event/concurrent
+ event/sequential
  racket/function
  racket/pretty
  syntax/parse
  (for-syntax racket/base
              racket/pretty
              syntax/parse))
+
+(provide
+ event event-do event-print event-debug
+ (all-from-out
+  event/concurrent
+  event/sequential))
 
 (define (#%event-esc stx)
   (raise-syntax-error #f "cannot evaluate abastract syntax" stx))

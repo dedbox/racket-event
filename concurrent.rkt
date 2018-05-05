@@ -1,8 +1,8 @@
 #lang racket/base
 
 (require
- event/monad
  event/renames
+ event/sequential
  racket/contract/base
  (for-syntax racket/base
              syntax/parse))
