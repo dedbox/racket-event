@@ -16,6 +16,15 @@
 (define (#%event-esc stx)
   (raise-syntax-error #f "cannot evaluate abastract syntax" stx))
 
+(define (#%event-let-values stx)
+  (raise-syntax-error #f "cannot evaluate abastract syntax" stx))
+
+(define (#%event-lambda stx)
+  (raise-syntax-error #f "cannot evaluate abastract syntax" stx))
+
+(define (#%event-case-lambda stx)
+  (raise-syntax-error #f "cannot evaluate abastract syntax" stx))
+
 (define (#%event-pure stx)
   (raise-syntax-error #f "cannot evaluate abastract syntax" stx))
 
@@ -49,6 +58,11 @@
 (begin-for-syntax
  (define-literal-set abstract-literals
    (#%event-esc
+    ;; racket/base
+    #%event-let-values
+    #%event-lambda
+    #%event-case-lambda
+    ;; event/monad
     #%event-pure
     #%event-return
     #%event-args
@@ -58,23 +72,49 @@
     #%event-seq
     #%event-seq0
     #%event-test
+    ;; internal
     #%event-curry))
 
  (define-literal-set monad-literals
-   (pure return args fmap app bind seq seq0 test series reduce loop))
+   (pure return args fmap app bind seq seq0 test))
 
- (define monad-literal-ids
-   (list #'pure #'return #'args #'fmap #'app #'bind #'seq #'seq0 #'test
-         #'series #'reduce #'loop))
+ (define-literal-set racket-literals
+   (begin begin0 let let* let-values lambda λ case-lambda if quote))
 
  (define-syntax-class event
    #:description "EXPAND"
    #:attributes (expand)
    #:commit
-   #:literal-sets (monad-literals)
+   #:literal-sets (racket-literals monad-literals)
    #:datum-literals (esc)
    [pattern (esc ~! datum) #:attr expand #'(#%event-esc datum)]
-   [pattern (pure ~! datum) #:attr expand #'(#%event-pure (#%event-pure datum))]
+   ;; racket/base
+   [pattern (begin ~! E:event ...+) #:attr expand #'(#%event-seq E.expand ...)]
+   [pattern (begin0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
+   [pattern (let ~! bs E ...+) #:with e:event #'(let* bs E ...) #:attr expand #'e.expand]
+   [pattern (let* ~! ([x V:event] ...) E:event ...+)
+            #:attr expand
+            #'(#%event-let-values ([(x) V.expand] ...) (#%event-seq E.expand ...))]
+   [pattern (let-values ([xs Vs:event] ...) E:event ...+)
+            #:attr expand
+            #'(#%event-let-values ([xs Vs.expand] ...) (#%event-seq E.expand ...))]
+   [pattern ((~or lambda λ) ~! _ _ ...+) #:attr expand #`(#%event-pure #,this-syntax)]
+   [pattern (case-lambda ~! _ ...) #:attr expand #`(#%event-pure #,this-syntax)]
+   [pattern (if ~! E1:event E2:event E3:event)
+            #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
+   [pattern (quote ~! _) #:attr expand #`(#%event-pure #,this-syntax)]
+   [pattern (((~or lambda λ) ~! xs E:event ...+) V:event ...)
+            #:attr expand
+            #'(#%event-app (#%event-lambda xs (#%event-seq E.expand ...)) V.expand ...)]
+   [pattern ((case-lambda ~! [xs E:event ...+] ...) V:event ...)
+            #:attr expand
+            #'(#%event-app (#%event-case-lambda [xs (#%event-seq E.expand ...)] ...)
+                           V.expand ...)]
+   [pattern v:string #:attr expand #'(#%event-pure v)]
+   [pattern v:boolean #:attr expand #'(#%event-pure v)]
+   [pattern v:number #:attr expand #'(#%event-pure v)]
+   ;; event/monad
+   [pattern (pure ~! datum) #:attr expand #'(#%event-pure datum)]
    [pattern (return ~! e) #:attr expand #'(#%event-return e)]
    [pattern (args ~! E:event ...) #:attr expand #'(#%event-args E.expand ...)]
    [pattern (fmap ~! f E:event ...) #:attr expand #'(#%event-fmap f E.expand ...)]
@@ -84,9 +124,7 @@
    [pattern (seq0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
    [pattern (test ~! E1:event E2:event E3:event)
             #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
-   [pattern v:string #:attr expand #'(#%event-pure v)]
-   [pattern v:boolean #:attr expand #'(#%event-pure v)]
-   [pattern v:number #:attr expand #'(#%event-pure v)]
+   ;; defaults
    [pattern x:id #:attr expand #'(#%event-pure x)]
    [pattern (E:event ...+) #:attr expand #'(#%event-app E.expand ...)]
    [pattern _ #:fail-when #t "bad event expression syntax" #:attr expand #'#f])
@@ -96,36 +134,30 @@
    #:attributes (reduce)
    #:commit
    #:literal-sets (abstract-literals)
-   #:literals (curry)
    ;; eliminate single-element sequences
    [pattern (#%event-seq E:expanded) #:attr reduce #'E.reduce]
    [pattern (#%event-seq0 E:expanded) #:attr reduce #'E.reduce]
-   ;; currying
-   [pattern (#%event-app (#%event-pure curry) (#%event-pure f) x ...)
-            #:with E:expanded #'(#%event-app (#%event-curry f) x ...)
-            #:attr reduce #'E.reduce]
-   [pattern (#%event-app (#%event-pure (curry f x ...))
-                         (#%event-pure y)
-                         ~! z ...)
-            #:with E:expanded #'(#%event-app (#%event-curry f x ... y) z ...)
-            #:attr reduce #'E.reduce]
-   ;; [pattern (#%event-app (#%event-curry f x ...))
-   ;;          #:attr reduce #'(#%event-pure (f x ...))]
-   ;; [pattern (#%event-app (#%event-pure f) (#%event-pure x) ...)
-   ;;          #:attr reduce #'(#%event-pure (f x ...))]
-   ;; [pattern (#%event-app (#%event-pure f) (#%event-pure x) ~! y ...+)
-   ;;          #:with E:expanded #'(#%event-app (#%event-curry f x) y ...)
-   ;;          #:attr reduce #'E.reduce]
-   [pattern (#%event-app (#%event-curry f x ...) (#%event-pure y) ~! z ...)
-            #:with E:expanded #'(#%event-app (#%event-curry f x ... y) z ...)
-            #:attr reduce #'E.reduce]
-   [pattern (#%event-app (#%event-curry f x ...))
-            #:attr reduce #'(#%event-pure (curry f x ...))]
-   [pattern (#%event-app (#%event-curry f x ...) y:expanded ...+)
-            #:with E:expanded
-            #'(#%event-app (#%event-pure (curry f x ...)) y.reduce ...)
-            #:attr reduce #'E.reduce]
+   ;; applicative functor laws
+   [pattern (#%event-app (#%event-pure f) (#%event-pure x) ...)
+            #:with e:expanded #'(#%event-pure (f x ...))
+            #:attr reduce #'e.reduce]
+   [pattern (#%event-app (#%event-pure f) (#%event-pure x) E ...)
+            #:with e:expanded #'(#%event-app (#%event-curry f x) E ...)
+            #:attr reduce #'e.reduce]
+   [pattern (#%event-app (#%event-pure f) E ...)
+            #:with e:expanded #'(#%event-fmap f E ...)
+            #:attr reduce #'e.reduce]
+   [pattern (#%event-app (#%event-curry f x ...) (#%event-pure y) E ...)
+            #:with e:expanded #'(#%event-app (#%event-curry f x ... y) E ...)
+            #:attr reduce #'e.reduce]
+   [pattern (#%event-app (#%event-curry f x ...) E:expanded ...)
+            #:attr reduce #'(#%event-fmap (curry f x ...) E.reduce ...)]
    ;; recur
+   [pattern (#%event-let-values ~! ([xs Vs:expanded] ...) E:expanded)
+            #:attr reduce #'(#%event-let-values ([xs Vs.reduce] ...) E.reduce)]
+   [pattern (#%event-lambda ~! xs E:expanded) #:attr reduce #'(#%event-lambda xs E.reduce)]
+   [pattern (#%event-case-lambda ~! [xs E:expanded] ...)
+            #:attr reduce #'(#%event-case-lambda [xs E.reduce] ...)]
    [pattern (#%event-args ~! E:expanded ...) #:attr reduce #'(#%event-args E.reduce ...)]
    [pattern (#%event-fmap ~! f E:expanded ...) #:attr reduce #'(#%event-fmap f E.reduce ...)]
    [pattern (#%event-app ~! E:expanded ...+) #:attr reduce #'(#%event-app E.reduce ...)]
@@ -137,12 +169,34 @@
    ;; default
    [pattern _ #:attr reduce this-syntax])
 
+ (define (reduce-event stx)
+   (syntax-parse stx
+     [e:expanded
+      (let ([stx* #'e.reduce])
+        ;; (writeln `(XXX ,(syntax->datum stx)
+        ;;                ,(syntax->datum stx*)))
+        (if (equal? (syntax->datum stx)
+                    (syntax->datum stx*))
+            stx*
+            (reduce-event stx*)))]))
+
  (define-syntax-class reduced
    #:description "REALIZE"
    #:attributes (realize)
    #:commit
    #:literal-sets (abstract-literals)
+   ;; event
    [pattern (#%event-esc ~! datum) #:attr realize #'datum]
+   ;; racket/base
+   [pattern (#%event-let-values () ~! E:reduced) #:attr realize #'E.realize]
+   [pattern (#%event-let-values ~! ([xs Vs:reduced] ys ...) E:reduced)
+            #:with e:reduced #'(#%event-let-values (ys ...) E)
+            #:attr realize #'(bind (λ xs e.realize) Vs.realize)]
+   [pattern (#%event-app (#%event-lambda xs E:reduced) V:reduced ...)
+            #:attr realize #'(bind (lambda xs E.realize) V.realize ...)]
+   [pattern (#%event-app (#%event-case-lambda [xs E:reduced] ...) V:reduced ...)
+            #:attr realize #'(bind (case-lambda [xs E.realize] ...) V.realize ...)]
+   ;; event/monad
    [pattern (#%event-pure ~! datum) #:attr realize #'(pure datum)]
    [pattern (#%event-return ~! e) #:attr realize #'(return e)]
    [pattern (#%event-args ~! E:reduced ...) #:attr realize #'(args E.realize ...)]
@@ -156,7 +210,7 @@
 
  (define (make-event stx-0 debugging?)
    (define stx-1 (syntax-parse stx-0 [e:event #'e.expand]))
-   (define stx-2 (syntax-parse stx-1 [e:expanded #'e.reduce]))
+   (define stx-2 (reduce-event stx-1))
    (define stx-3 (syntax-parse stx-2 [e:reduced #'e.realize]))
    (if debugging? (values stx-0 stx-1 stx-2 stx-3) stx-3)))
 
@@ -203,9 +257,177 @@
     (check-expand (esc 1) (#%event-esc 1)))
 
   (test-case
+    "expand begin"
+    (check-expand (begin 1) (#%event-seq (#%event-pure 1)))
+    (check-expand
+     (begin 1 2 3)
+     (#%event-seq
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand begin0"
+    (check-expand (begin0 1) (#%event-seq0 (#%event-pure 1)))
+    (check-expand
+     (begin0 1 2 3)
+     (#%event-seq0
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand let"
+    (check-expand (let () 1) (#%event-let-values () (#%event-seq (#%event-pure 1))))
+    (check-expand
+     (let ([x 1] [y 2]) (+ x y))
+     (#%event-let-values
+      ([(x) (#%event-pure 1)]
+       [(y) (#%event-pure 2)])
+      (#%event-seq
+       (#%event-app
+        (#%event-pure +)
+        (#%event-pure x)
+        (#%event-pure y))))))
+
+  (test-case
+    "expand let*"
+    (check-expand
+     (let* () 1)
+     (#%event-let-values () (#%event-seq (#%event-pure 1))))
+    (check-expand
+     (let* ([x 1] [y 2]) (+ x y))
+     (#%event-let-values
+      ([(x) (#%event-pure 1)]
+       [(y) (#%event-pure 2)])
+      (#%event-seq
+       (#%event-app
+        (#%event-pure +)
+        (#%event-pure x)
+        (#%event-pure y))))))
+
+  (test-case
+    "expand let-values"
+    (check-expand
+     (let-values () 1)
+     (#%event-let-values () (#%event-seq (#%event-pure 1))))
+    (check-expand
+     (let-values
+         ([(x1 x2) (values 1 2)]
+          [ys (f x1 x2)])
+       3 4 5)
+     (#%event-let-values
+      ([(x1 x2) (#%event-app
+                 (#%event-pure values)
+                 (#%event-pure 1)
+                 (#%event-pure 2))]
+       [ys (#%event-app
+            (#%event-pure f)
+            (#%event-pure x1)
+            (#%event-pure x2))])
+      (#%event-seq
+       (#%event-pure 3)
+       (#%event-pure 4)
+       (#%event-pure 5)))))
+
+  (test-case
+    "expand lambda"
+    (check-expand (lambda _ 1) (#%event-pure (lambda _ 1)))
+    (check-expand (lambda (x y) 1 2 3) (#%event-pure (lambda (x y) 1 2 3))))
+
+  (test-case
+    "expand λ"
+    (check-expand (λ _ 1) (#%event-pure (λ _ 1)))
+    (check-expand (λ (x y) 1 2 3) (#%event-pure (λ (x y) 1 2 3))))
+
+  (test-case
+    "expand case-lambda"
+    (check-expand (case-lambda) (#%event-pure (case-lambda)))
+    (check-expand
+     (case-lambda [() 0] [(x) 1] [(y z) 2] [_ -1])
+     (#%event-pure (case-lambda [() 0] [(x) 1] [(y z) 2] [_ -1]))))
+
+  (test-case
+    "expand if"
+    (check-expand
+     (if 1 2 3)
+     (#%event-test (#%event-pure 1) (#%event-pure 2) (#%event-pure 3))))
+
+  (test-case
+    "expand quote"
+    (check-expand (quote 1) (#%event-pure '1))
+    (check-expand (quote (1 2 3)) (#%event-pure '(1 2 3))))
+
+  (test-case
+    "expand lambda app"
+    (check-expand
+     ((lambda _ 1) 2)
+     (#%event-app (#%event-lambda _ (#%event-seq (#%event-pure 1)))
+                  (#%event-pure 2)))
+    (check-expand
+     ((lambda (x y) (+ x y)) 1 2)
+     (#%event-app
+      (#%event-lambda
+       (x y)
+       (#%event-seq
+        (#%event-app
+         (#%event-pure +)
+         (#%event-pure x)
+         (#%event-pure y))))
+      (#%event-pure 1)
+      (#%event-pure 2))))
+
+  (test-case
+    "expand λ app"
+    (check-expand
+     ((λ _ 1) 2)
+     (#%event-app (#%event-lambda _ (#%event-seq (#%event-pure 1)))
+                   (#%event-pure 2)))
+    (check-expand
+     ((λ (x y) (+ x y)) 1 2)
+     (#%event-app
+      (#%event-lambda
+       (x y)
+       (#%event-seq
+        (#%event-app
+         (#%event-pure +)
+         (#%event-pure x)
+         (#%event-pure y))))
+      (#%event-pure 1)
+      (#%event-pure 2))))
+
+  (test-case
+    "expand case-lambda app"
+    (check-expand ((case-lambda)) (#%event-app (#%event-case-lambda)))
+    (check-expand
+     ((case-lambda [() 0] [(x) 1] [(y z) 2] [_ -1]) 1 2 3)
+     (#%event-app
+      (#%event-case-lambda
+       [() (#%event-seq (#%event-pure 0))]
+       [(x) (#%event-seq (#%event-pure 1))]
+       [(y z) (#%event-seq (#%event-pure 2))]
+       [_ (#%event-seq (#%event-pure -1))])
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand <string>"
+    (check-expand "a" (#%event-pure "a")))
+
+  (test-case
+    "expand <boolean>"
+    (check-expand #t (#%event-pure #t))
+    (check-expand #f (#%event-pure #f)))
+
+  (test-case
+    "expand <number>"
+    (check-expand 1 (#%event-pure 1)))
+
+  (test-case
     "expand pure"
-    (check-expand (pure 1) (#%event-pure (#%event-pure 1)))
-    (check-expand (pure (+ 1 2)) (#%event-pure (#%event-pure (+ 1 2)))))
+    (check-expand (pure 1) (#%event-pure 1))
+    (check-expand (pure (+ 1 2)) (#%event-pure (+ 1 2))))
 
   (test-case
     "expand return"
@@ -284,19 +506,6 @@
       (#%event-pure 2))))
 
   (test-case
-    "expand <string>"
-    (check-expand "a" (#%event-pure "a")))
-
-  (test-case
-    "expand <boolean>"
-    (check-expand #t (#%event-pure #t))
-    (check-expand #f (#%event-pure #f)))
-
-  (test-case
-    "expand <number>"
-    (check-expand 1 (#%event-pure 1)))
-
-  (test-case
     "expand <identifier>"
     (check-expand x (#%event-pure x)))
 
@@ -315,9 +524,9 @@
   (define-syntax (check-reduce stx)
     (syntax-parse stx
       [(_ e:event v)
-       (define e* (syntax-parse #'e.expand [e:expanded #'e.reduce]))
+       (define e** (syntax-parse #'e.expand [e* (reduce-event #'e*)]))
        #`(check equal?
-                (syntax->datum #'#,e*)
+                (syntax->datum #'#,e**)
                 (syntax->datum #'v))]))
 
   (test-case
@@ -326,13 +535,109 @@
     (check-reduce (seq0 1) (#%event-pure 1)))
 
   (test-case
-    "reduce currying"
+    "reduce curry"
+    (check-reduce curry (#%event-pure curry))
     (check-reduce (curry +) (#%event-pure (curry +)))
+    (check-reduce (curry + 1 2) (#%event-pure (curry + 1 2)))
+    (check-reduce ((curry + 1) 2) (#%event-pure ((curry + 1) 2)))
+    (check-reduce (app (pure f)) (#%event-pure (f))))
+
+  (test-case
+    "reduce #%event-let-values"
+    (check-reduce (let-values () 1) (#%event-let-values () (#%event-pure 1)))
     (check-reduce
-     ((curry + 1) 2)
+     (let ([x 1] [y (+ 2 3)]) (- x y))
+     (#%event-let-values
+      ([(x) (#%event-pure 1)]
+       [(y) (#%event-pure (+ 2 3))])
+      (#%event-pure (- x y)))))
+
+  (test-case
+    "reduce #%event-lambda"
+    (check-reduce ((λ _ 1)) (#%event-app (#%event-lambda _ (#%event-pure 1))))
+    (check-reduce
+     ((λ (x y) (+ x y)) 1 2)
      (#%event-app
-      (#%event-pure (curry + 1))
+      (#%event-lambda (x y) (#%event-pure (+ x y)))
+      (#%event-pure 1)
       (#%event-pure 2))))
+
+  (test-case
+    "reduce #%event-case-lambda"
+    (check-reduce ((case-lambda)) (#%event-app (#%event-case-lambda)))
+    (check-reduce
+     ((case-lambda [() 1] [_ -1]) 2)
+     (#%event-app
+      (#%event-case-lambda
+       [() (#%event-pure 1)]
+       [_ (#%event-pure -1)])
+      (#%event-pure 2))))
+
+  (test-case
+    "reduce args"
+    (check-reduce (args) (#%event-args))
+    (check-reduce
+     (args 1 2 3)
+     (#%event-args
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce fmap"
+    (check-reduce (fmap +) (#%event-fmap +))
+    (check-reduce
+     (fmap + 1 2 3)
+     (#%event-fmap
+      +
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce app"
+    (check-reduce (app f) (#%event-pure (f)))
+    (check-reduce (app f 1 2 3) (#%event-pure (f 1 2 3))))
+
+  (test-case
+    "reduce bind"
+    (check-reduce (bind f) (#%event-bind f))
+    (check-reduce
+     (bind + 1 2 3)
+     (#%event-bind
+      +
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce seq"
+    (check-reduce (seq 1) (#%event-pure 1))
+    (check-reduce
+     (seq 1 2 3)
+     (#%event-seq
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce seq0"
+    (check-reduce (seq0 1) (#%event-pure 1))
+    (check-reduce
+     (seq0 1 2 3)
+     (#%event-seq0
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce test"
+    (check-reduce
+     (test 1 2 3)
+     (#%event-test
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
 
   (test-case
     "reduce <default>"
@@ -354,6 +659,31 @@
   (test-case
     "realize #%event-esc"
     (check-realize (esc 1) 1))
+
+  (test-case
+    "realize #%event-let-values"
+    (check-realize (let () 1) (pure 1))
+    (check-realize
+     (let ([x 1] [y 2]) (+ x y))
+     (bind (λ (x) (bind (λ (y) (pure (+ x y))) (pure 2))) (pure 1))))
+
+  (test-case
+    "realize #%event-lambda app"
+    (check-realize ((λ _ 1)) (bind (lambda _ (pure 1))))
+    (check-realize
+     ((lambda (x y) (+ x y)) 1 2)
+     (bind (lambda (x y) (pure (+ x y)))
+           (pure 1)
+           (pure 2))))
+
+  (test-case
+    "realize #%event-case-lambda app"
+    (check-realize ((case-lambda)) (bind (case-lambda)))
+    (check-realize
+     ((case-lambda [(x) 1] [_ -1]) 2 3)
+     (bind (case-lambda [(x) (pure 1)] [_ (pure -1)])
+           (pure 2)
+           (pure 3))))
 
   (test-case
     "realize #%event-pure"
@@ -385,14 +715,11 @@
 
   (test-case
     "realize #%event-app"
-    (check-realize (app +) (app (pure +)))
+    (check-realize (app +) (pure (+)))
+    (check-realize (app + 1 2 3) (pure (+ 1 2 3)))
     (check-realize
-     (app + 1 2 3)
-     (app
-      (pure +)
-      (pure 1)
-      (pure 2)
-      (pure 3))))
+     (app + 1 (app + 2 3))
+     (fmap (curry + 1) (pure (+ 2 3)))))
 
   (test-case
     "realize #%event-bind"
@@ -431,9 +758,9 @@
     (check-realize
      (test (+ 1 2) (- 3 4) (* 5 6))
      (test
-      (app (pure +) (pure 1) (pure 2))
-      (app (pure -) (pure 3) (pure 4))
-      (app (pure *) (pure 5) (pure 6)))))
+      (pure (+ 1 2))
+      (pure (- 3 4))
+      (pure (* 5 6)))))
 
   ;; MAKE
 
@@ -467,4 +794,3 @@
     "event-do test"
     (check = (event-do (test #t 1 2)) 1)
     (check = (event-do (test #f 1 2)) 2)))
-
