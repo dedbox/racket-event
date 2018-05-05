@@ -65,13 +65,14 @@ running events easy to create and re-use.
 
 @defform[(event expr ...+)]{
 
-  Returns a @rtech{synchronizable event} that delays evaluation of
-  @racket[#,(var expr) #,(var ...)] until a thread synchronizes on it. The
-  @rtech{synchronization result} is the evaluation result.
+  Returns a @rtech{synchronizable event} that delays evaluation of expression
+  sequence @racket[#,(var expr) #,(var ...)] until synchronized on and then
+  uses the evaluation result as its @rtech{synchronization result}.
 
   @example[
-    (event 5)
-    (sync (event 5))
+    (event 5 6 7)
+    (event-do 5 6 7)
+    (event-print 5 6 7)
   ]
 }
 
