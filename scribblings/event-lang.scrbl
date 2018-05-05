@@ -31,18 +31,18 @@
      expr ...
    ])
 
-Event-lang is a DSL for creating @rtech{synchronizable events}. It provides
+Event-lang is a DSL for creating @rtech{synchronizable events}.
 
-@itemlist[
-  @item{A primitive lifting form, @racket[pure]}
-  @item{A set of sequential and concurrent event combinators}
-  @item{An event construction form, @racket[event]}
-]
+The @racketmodname[event/monad] module provides the @racket[pure] primitive
+lifting form and a set of sequential combinators. The @racketmodname[event]
+module re-exports these bindings and includes a sophisticated @racket[event]
+constructor. The @racketmodname[event/async-monad] provides concurrent
+alternatives for some of the sequential combinators.
 
-@; The @racket[event] form recursively rewrites its input expression into a
-@; @rtech{synchronizable event} that uses a primitive lifting form and a small
-@; set of combinators. An equivalent event can always be constructed manually
-@; with the provided combinators.
+The @racket[event] form takes an ordinary Racket expression, auto-lifts
+sub-expressions into sub-events, and produces an event that, when synchronized
+on, evaluates the expression and becomes @rtech{ready for synchronization}
+with the evaluation result as its @rtech{synchronization result}.
 
 @section{Event Construction}
 
@@ -58,9 +58,12 @@ Event-lang is a DSL for creating @rtech{synchronizable events}. It provides
     (event 5)
     (sync (event 5))
   ]
+}
 
-  Use @racket[esc] inside the @racket[event] form to embed values directly
-  into the resulting event.
+@defform[(esc expr)]{
+
+  This form can only appear as an expression within an @racket[event] form.
+  Use it to embed a value directly into the result.
 
   @example[
     (event (esc 5))
@@ -406,26 +409,3 @@ Event-lang is a DSL for creating @rtech{synchronizable events}. It provides
 @;       (seq (pure (print 3)) (pure 3))))
 @;   ]
 @; }
-
-
-@; EVENT/RACKET/BASE
-@; Racket syntax. For example,
-
-@; @racketblock[(event (let ([x 3] [y 2]) (+ x y)))]
-
-@; creates an event that binds @racket[x] and @racket[y] to numbers internally
-@; and then uses their sum as its @rtech{synchronization result}.
-
-@; The @racket[event] form recursively rewrites its input expression into a
-@; @rtech{synchronizable event} that uses a primitive lifting form and a small
-@; set of combinators. An equivalent event can always be constructed manually
-@; with the provided combinators.
-
-@; @racketblock[
-@;   (bind
-@;    (λ (x)
-@;      (bind
-@;       (λ (y) (pure (+ x y)))
-@;       (return 2)))
-@;    (return 3))
-@; ]
