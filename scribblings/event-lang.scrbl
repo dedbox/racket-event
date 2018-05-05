@@ -33,16 +33,17 @@
 
 Event-lang is a DSL for creating @rtech{synchronizable events}.
 
-The @racketmodname[event/sequential] module provides the @racket[pure]
-primitive lifting form and a set of sequential combinators. The
-@racketmodname[event] module re-exports these bindings and includes a
-sophisticated @racket[event] constructor. The @racketmodname[event/concurrent]
-module provides concurrent variants of the sequential combinators.
+The @racketmodname[event/sequential] module provides a primitive lifting form
+@racket[pure] and a set of combinators for making composite events that
+synchronize their sub-events sequentially. The
+@racketmodname[event/concurrent] module provides additional combinators for
+making The @racketmodname[event] module re-exports these bindings along with a
+sophisticated @racket[event] constructor.
 
-The @racket[event] form takes an ordinary Racket expression, auto-lifts
-sub-expressions into sub-events, and produces an event that, when synchronized
-on, evaluates the expression and becomes @rtech{ready for synchronization}
-with the evaluation result as its @rtech{synchronization result}.
+The @racket[event] form lifts an ordinary Racket expression into a
+@rtech{synchronizable event}. When synchronized on, an event evaluates its
+input expression and then becomes @rtech{ready for synchronization} with the
+evaluation result as its @rtech{synchronization result}.
 
 @section{Event Construction}
 
