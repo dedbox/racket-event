@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title{Event-lang: Synchronizable Event Programming}
+@title{Event-lang: synchronizable event programming}
 @author{@author+email["Eric Griffis" "dedbox@gmail.com"]}
 
 @(require
@@ -34,11 +34,11 @@
 Event-lang is a DSL for creating @rtech{synchronizable events}.
 
 The @racketmodname[event/sequential] module provides a primitive lifting form
-@racket[pure] and a set of combinators for making composite events that
+(@racket[pure]) and a set of combinators for making composite events that
 synchronize sub-events sequentially. The @racketmodname[event/concurrent]
 module provides additional combinators for synchronizing sub-events
 opportunistically. The @racketmodname[event] module re-exports these bindings
-and adds a sophisticated lifting form @racket[event].
+and adds a sophisticated lifting form (@racket[event]).
 
 The @racket[event] form translates an ordinary Racket expression into a
 @rtech{synchronizable event} that, when synchronized on, evaluates its
