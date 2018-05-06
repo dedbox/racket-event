@@ -43,12 +43,19 @@
   #%event-series
   #%event-reduce
   #%event-loop
+  ;; event/concurrent
+  #%event-async-set
+  #%event-async-args
+  #%event-async-fmap
+  #%event-async-app
+  #%event-async-bind
   ;; internal
   #%event-curry)
 
 (begin-for-syntax
- (define-literal-set sequential-literals
-   (pure return args fmap app bind seq seq0 test series reduce loop))
+ (define-literal-set event-literals
+   (pure return args fmap app bind seq seq0 test series reduce loop
+         async-set async-args async-fmap async-app async-bind))
 
  (define-literal-set racket-literals
    (begin begin0 let let* let-values lambda λ case-lambda if quote))
@@ -57,7 +64,7 @@
    #:description "EXPAND"
    #:attributes (expand)
    #:commit
-   #:literal-sets (racket-literals sequential-literals)
+   #:literal-sets (racket-literals event-literals)
    #:datum-literals (esc)
    [pattern (esc ~! datum) #:attr expand #'(#%event-esc datum)]
    ;; racket/base
@@ -100,6 +107,13 @@
             #:attr expand #'(#%event-series V.expand f ...)]
    [pattern (reduce ~! f check v ...) #:attr expand #'(#%event-reduce f check v ...)]
    [pattern (loop ~! f v ...) #:attr expand #'(#%event-loop f v ...)]
+   ;; event/concurrent
+   [pattern (async-set ~! E:event ...) #:attr expand #'(#%event-async-set E.expand ...)]
+   [pattern (async-args ~! E:event ...) #:attr expand #'(#%event-async-args E.expand ...)]
+   [pattern (async-fmap ~! f E:event ...) #:attr expand #'(#%event-async-fmap f E.expand ...)]
+   [pattern (async-app ~! F:event E:event ...)
+            #:attr expand #'(#%event-async-app F.expand E.expand ...)]
+   [pattern (async-bind ~! f E:event ...) #:attr expand #'(#%event-async-bind f E.expand ...)]
    ;; defaults
    [pattern x:id #:attr expand #'(#%event-pure x)]
    [pattern (F:event ~! E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
@@ -128,14 +142,13 @@
             #:attr reduce #'e.reduce]
    [pattern (#%event-app (#%event-curry f x ...) E:expanded ...)
             #:attr reduce #'(#%event-fmap (curry f x ...) E.reduce ...)]
-   [pattern (#%event-app* (#%event-pure f) (#%event-pure xs))
-            #:attr reduce #'(#%event-pure (apply f xs))]
-   ;; recur
+   ;; racket/base
    [pattern (#%event-let-values ~! ([xs Vs:expanded] ...) E:expanded)
             #:attr reduce #'(#%event-let-values ([xs Vs.reduce] ...) E.reduce)]
    [pattern (#%event-lambda ~! xs E:expanded) #:attr reduce #'(#%event-lambda xs E.reduce)]
    [pattern (#%event-case-lambda ~! [xs E:expanded] ...)
             #:attr reduce #'(#%event-case-lambda [xs E.reduce] ...)]
+   ;; event/sequential
    [pattern (#%event-args ~! E:expanded ...) #:attr reduce #'(#%event-args E.reduce ...)]
    [pattern (#%event-fmap ~! f E:expanded ...) #:attr reduce #'(#%event-fmap f E.reduce ...)]
    [pattern (#%event-app ~! F:expanded E:expanded ...)
@@ -149,6 +162,17 @@
             #:attr reduce #'(#%event-series V.reduce f ...)]
    [pattern (#%event-reduce ~! f check v ...) #:attr reduce #'(#%event-reduce f check v ...)]
    [pattern (#%event-loop ~! f v ...) #:attr reduce #'(#%event-loop f v ...)]
+   ;; event/concurrent
+   [pattern (#%event-async-set ~! E:expanded ...)
+            #:attr reduce #'(#%event-async-set E.reduce ...)]
+   [pattern (#%event-async-args ~! E:expanded ...)
+            #:attr reduce #'(#%event-async-args E.reduce ...)]
+   [pattern (#%event-async-fmap ~! f E:expanded ...)
+            #:attr reduce #'(#%event-async-fmap f E.reduce ...)]
+   [pattern (#%event-async-app ~! F:expanded E:expanded ...)
+            #:attr reduce #'(#%event-async-app F.reduce E.reduce ...)]
+   [pattern (#%event-async-bind ~! f E:expanded ...)
+            #:attr reduce #'(#%event-async-bind f E.reduce ...)]
    ;; default
    [pattern _ #:attr reduce this-syntax])
 
@@ -156,6 +180,10 @@
    (syntax-parse stx
      [e:expanded
       (let ([stx* #'e.reduce])
+        ;; (pretty-write
+        ;;  `(XXX
+        ;;    ,(syntax->datum stx)
+        ;;    ,(syntax->datum stx*)))
         (if (equal? (syntax->datum stx)
                     (syntax->datum stx*))
             stx*
@@ -193,7 +221,16 @@
             #:attr realize #'(series V.realize (compose return f) ...)]
    [pattern (#%event-reduce ~! f check v ...)
             #:attr realize #'(reduce (compose return f) check v ...)]
-   [pattern (#%event-loop ~! f v ...) #:attr realize #'(loop (compose return f) v ...)])
+   [pattern (#%event-loop ~! f v ...) #:attr realize #'(loop (compose return f) v ...)]
+   ;; event/concurrent
+   [pattern (#%event-async-set ~! E:reduced ...) #:attr realize #'(async-set E.realize ...)]
+   [pattern (#%event-async-args ~! E:reduced ...) #:attr realize #'(async-args E.realize ...)]
+   [pattern (#%event-async-fmap ~! f E:reduced ...)
+            #:attr realize #'(async-fmap (compose return f) E.realize ...)]
+   [pattern (#%event-async-app ~! F:reduced E:reduced ...)
+            #:attr realize #'(async-app F.realize E.realize ...)]
+   [pattern (#%event-async-bind ~! f E:reduced ...)
+            #:attr realize #'(async-bind f E.realize ...)])
 
  (define (make-event stx-0 debugging?)
    (define stx-1 (syntax-parse stx-0 [e:event #'e.expand]))
@@ -512,6 +549,59 @@
     (check-expand (loop add1 0) (#%event-loop add1 0)))
 
   (test-case
+    "expand async-set"
+    (check-expand (async-set) (#%event-async-set))
+    (check-expand
+     (async-set 1 2 3)
+     (#%event-async-set
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand async-args"
+    (check-expand (async-args) (#%event-async-args))
+    (check-expand
+     (async-args 1 2 3)
+     (#%event-async-args
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand async-fmap"
+    (check-expand (async-fmap f) (#%event-async-fmap f))
+    (check-expand
+     (async-fmap f 1 2 3)
+     (#%event-async-fmap
+      f
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand async-app"
+    (check-expand (async-app f) (#%event-async-app (#%event-pure f)))
+    (check-expand
+     (async-app f 1 2 3)
+     (#%event-async-app
+      (#%event-pure f)
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "expand async-bind"
+    (check-expand (async-bind f) (#%event-async-bind f))
+    (check-expand
+     (async-bind f 1 2 3)
+     (#%event-async-bind
+      f
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
     "expand <identifier>"
     (check-expand x (#%event-pure x)))
 
@@ -665,6 +755,58 @@
     (check-reduce (loop f 1 2 3) (#%event-loop f 1 2 3)))
 
   (test-case
+    "reduce async-set"
+    (check-reduce (async-set) (#%event-async-set))
+    (check-reduce
+     (async-set 1 (+ 2 3))
+     (#%event-async-set
+      (#%event-pure 1)
+      (#%event-pure (+ 2 3)))))
+
+  (test-case
+    "reduce async-args"
+    (check-reduce (async-args) (#%event-async-args))
+    (check-reduce
+     (async-args 1 2 3)
+     (#%event-async-args
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce async-fmap"
+    (check-reduce (async-fmap f) (#%event-async-fmap f))
+    (check-reduce
+     (async-fmap f 1 2 3)
+     (#%event-async-fmap
+      f
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce async-app"
+    (check-reduce (async-app f) (#%event-async-app (#%event-pure f)))
+    (check-reduce
+     (async-app f 1 2 3)
+     (#%event-async-app
+      (#%event-pure f)
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
+    "reduce async-bind"
+    (check-reduce (async-bind f) (#%event-async-bind f))
+    (check-reduce
+     (async-bind f 1 2 3)
+     (#%event-async-bind
+      f
+      (#%event-pure 1)
+      (#%event-pure 2)
+      (#%event-pure 3))))
+
+  (test-case
     "reduce <default>"
     (check-reduce 1 (#%event-pure 1))
     (check-reduce (esc 1) (#%event-esc 1)))
@@ -803,6 +945,40 @@
     "realize #%event-loop"
     (check-realize (loop f 0) (loop (compose return f) 0))
     (check-realize (loop f 1 2 3) (loop (compose return f) 1 2 3)))
+
+  (test-case
+    "realize #%event-async-set"
+    (check-realize (async-set) (async-set))
+    (check-realize
+     (async-set 1 2 3) (async-set (pure 1) (pure 2) (pure 3))))
+
+  (test-case
+    "realize #%event-async-args"
+    (check-realize (async-args) (async-args))
+    (check-realize
+     (async-args 1 2 3)
+     (async-args (pure 1) (pure 2) (pure 3))))
+
+  (test-case
+    "realize #%event-async-fmap"
+    (check-realize (async-fmap f) (async-fmap (compose return f)))
+    (check-realize
+     (async-fmap f 1 2 3)
+     (async-fmap (compose return f) (pure 1) (pure 2) (pure 3))))
+
+  (test-case
+    "realize #%event-async-app"
+    (check-realize (async-app f) (async-app (pure f)))
+    (check-realize
+     (async-app f 1 2 3)
+     (async-app (pure f) (pure 1) (pure 2) (pure 3))))
+
+  (test-case
+    "realize #%event-async-bind"
+    (check-realize (async-bind f) (async-bind f))
+    (check-realize
+     (async-bind f 1 2 3)
+     (async-bind f (pure 1) (pure 2) (pure 3))))
 
   ;; MAKE
 

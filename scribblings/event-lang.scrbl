@@ -36,28 +36,26 @@ Event-lang is a DSL for creating @rtech{synchronizable events}.
 The @racketmodname[event/sequential] module provides a primitive lifting form
 @racket[pure] and a set of combinators for making composite events that
 synchronize sub-events sequentially. The @racketmodname[event/concurrent]
-module provides additional combinators for synchronizing sub-events in any
-order. The @racketmodname[event] module re-exports these bindings and adds a
-sophisticated lifting form @racket[event].
+module provides additional combinators for synchronizing sub-events
+opportunistically. The @racketmodname[event] module re-exports these bindings
+and adds a sophisticated lifting form @racket[event].
 
 The @racket[event] form translates an ordinary Racket expression into a
-@rtech{synchronizable event}. When synchronized on, an event created by the
-@racket[event] form evaluates its expression and then becomes @rtech{ready for
-synchronization} with the evaluation result as its @rtech{synchronization
-result}.
+@rtech{synchronizable event} that, when synchronized on, evaluates its
+expression and then becomes @rtech{ready for synchronization} with the
+evaluation result as its @rtech{synchronization result}. Sub-expressions are
+lifted strategically to make large or long-lived events easier to create and
+re-use.
 
-The @racket[event] form also lifts sub-expressions strategically to make long
-running events easy to create and re-use.
-
-@example[
-  (define ch (make-channel))
-  (sync
-   (loop (λ _ (handle-evt ch write)))
-   (reduce
-    (λ (i) (seq (channel-put-evt ch i) (pure (sub1 i))))
-    (λ (i j) (= j 0))
-    9))
-]
+@; @example[
+@;   (define ch (make-channel))
+@;   (sync
+@;    (loop (λ _ (handle-evt ch write)))
+@;    (reduce
+@;     (λ (i) (seq (channel-put-evt ch i) (pure (sub1 i))))
+@;     (λ (i j) (= j 0))
+@;     9))
+@; ]
 
 @section{Event Construction}
 
