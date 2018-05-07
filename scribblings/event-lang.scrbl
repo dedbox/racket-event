@@ -119,6 +119,41 @@ re-use.
 
 @defmodule[event/sequential]
 
+@defform[(event-let ([id val-evt] ...) body-evt ...+)]{
+
+  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
+  from left to right and binds the @var[id]s to the results, then synchronizes
+  the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
+  @var[body-evt] as its own.
+
+  @example[
+    (sync
+     (event-let ([x (pure 1)]
+                 [y (pure 2)])
+       (pure (+ x y))))
+  ]
+}
+
+@defform[(event-let* ([id val-evt] ...) body-evt ...+)]{
+
+  Like @racket[event-let], but synchronizes the @var[val-evt]s one by one,
+  binding each @var[id] as soon as the value is available. The @var[id]s are
+  bound in the remaining @var[val-evt]s as well as the @var[body]s, and the
+  @var[id]s need not be distinct; later bindings shadow earlier bindings.
+
+  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
+  from left to right and binds the @var[id]s to the results, then synchronizes
+  the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
+  @var[body-evt] as its own.
+
+  @example[
+    (sync
+     (event-let* ([x (pure 1)]
+                  [y (pure (+ x 2))])
+       (pure (+ x y))))
+  ]
+}
+
 @defform[
   (event-cond event-cond-clause ...)
   #:grammar
