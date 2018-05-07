@@ -3,10 +3,12 @@
 (require
  event/renames
  racket/contract/base
- racket/function)
+ racket/function
+ (for-syntax racket/base
+             syntax/parse))
 
 (provide
- pure
+ pure event-let event-let*
  (contract-out
   [return (-> any/c evt?)]
   [args (-> evt? ... evt?)]
@@ -30,6 +32,19 @@
                (listof any/c) evt?)]
   [loop (-> (unconstrained-domain-> evt?) any/c ... evt?)]
   [loop* (-> (unconstrained-domain-> evt?) (listof any/c) evt?)]))
+
+;; racket/base
+
+(define-syntax (event-let stx)
+  (syntax-parse stx
+    [(_ ([x V] ...) E ...) #'(bind (λ (x ...) (seq E ...)) V ...)]))
+
+(define-syntax (event-let* stx)
+  (syntax-parse stx
+    [(_ () E ...+) #'(seq E ...)]
+    [(_ ([x V] bs ...) E ...+) #'(bind (λ (x) (event-let* (bs ...) E ...)) V)]))
+
+;; event/sequential
 
 (define-syntax-rule (pure datum)
   (handle always (λ _ datum)))
@@ -109,6 +124,17 @@
   (define id values)
 
   ;; doc examples
+
+  (test-case
+    "event-let"
+    (check = (sync (event-let ([x (pure 1)] [y (pure 2)]) (pure (+ x y))))
+           3))
+
+  (test-case
+    "event-let*"
+    (check
+     = (sync (event-let* ([x (pure 1)] [y (pure (+ x 2))]) (pure (+ x y))))
+     4))
 
   (test-case
     "pure"
