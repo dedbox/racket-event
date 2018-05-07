@@ -31,6 +31,7 @@
   #%event-let*
   #%event-lambda
   #%event-case-lambda
+  #%event-cond
   ;; event/sequential
   #%event-pure
   #%event-return
@@ -59,7 +60,31 @@
          async-set async-args async-fmap async-app async-bind))
 
  (define-literal-set racket-literals
-   (begin begin0 let let* lambda λ case-lambda if quote))
+   (begin begin0 let let* lambda λ case-lambda if cond quote))
+
+ (define-syntax-class cond-clause
+   #:description #f
+   #:attributes (expand)
+   #:datum-literals (=> else)
+   [pattern [else E:event ...+] #:attr expand #'[else (#%event-seq E.expand ...)]]
+   [pattern [T:event => E:event] #:attr expand #'[T.expand => E.expand]]
+   [pattern [T:event E:event ...+] #:attr expand #'[T.expand (#%event-seq E.expand ...)]])
+
+ (define-syntax-class expanded-cond-clause
+   #:description #f
+   #:attributes (reduce)
+   #:datum-literals (=> else)
+   [pattern [else E:expanded] #:attr reduce #'[else E.reduce]]
+   [pattern [T:expanded => E:expanded] #:attr reduce #'[T.reduce => E.reduce]]
+   [pattern [T:expanded E:expanded] #:attr reduce #'[T.reduce E.reduce]])
+
+ (define-syntax-class reduced-cond-clause
+   #:description #f
+   #:attributes (realize)
+   #:datum-literals (=> else)
+   [pattern [else E:reduced] #:attr realize #'[else E.realize]]
+   [pattern [T:reduced => E:reduced] #:attr realize #'[T.realize => E.realize]]
+   [pattern [T:reduced E:reduced] #:attr realize #'[T.realize E.realize]])
 
  (define-syntax-class event
    #:description "EXPAND"
@@ -79,6 +104,7 @@
    [pattern (case-lambda ~! _ ...) #:attr expand #`(#%event-pure #,this-syntax)]
    [pattern (if ~! E1:event E2:event E3:event)
             #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
+   [pattern (cond ~! c:cond-clause ...) #:attr expand #'(#%event-cond c.expand ...)]
    [pattern (quote ~! _) #:attr expand #`(#%event-pure #,this-syntax)]
    [pattern (((~or lambda λ) ~! xs E:event ...+) V:event ...)
             #:attr expand
@@ -148,6 +174,8 @@
    [pattern (#%event-lambda ~! xs E:expanded) #:attr reduce #'(#%event-lambda xs E.reduce)]
    [pattern (#%event-case-lambda ~! [xs E:expanded] ...)
             #:attr reduce #'(#%event-case-lambda [xs E.reduce] ...)]
+   [pattern (#%event-cond ~! c:expanded-cond-clause ...)
+            #:attr reduce #'(#%event-cond c.reduce ...)]
    ;; event/sequential
    [pattern (#%event-args ~! E:expanded ...) #:attr reduce #'(#%event-args E.reduce ...)]
    [pattern (#%event-fmap ~! f E:expanded ...) #:attr reduce #'(#%event-fmap f E.reduce ...)]
@@ -205,6 +233,8 @@
             #:attr realize #'(bind (lambda xs E.realize) V.realize ...)]
    [pattern (#%event-app (#%event-case-lambda [xs E:reduced] ...) V:reduced ...)
             #:attr realize #'(bind (case-lambda [xs E.realize] ...) V.realize ...)]
+   [pattern (#%event-cond c:reduced-cond-clause ...)
+            #:attr realize #'(event-cond c.realize ...)]
    ;; event/sequential
    [pattern (#%event-pure ~! datum) #:attr realize #'(pure datum)]
    [pattern (#%event-return ~! e) #:attr realize #'(return e)]
@@ -352,6 +382,16 @@
     (check-expand
      (if 1 2 3)
      (#%event-test (#%event-pure 1) (#%event-pure 2) (#%event-pure 3))))
+
+  (test-case
+    "expand cond"
+    (check-expand (cond) (#%event-cond))
+    (check-expand
+     (cond [#f 0] [#t => (λ _ 1)] [else 2])
+     (#%event-cond
+      [(#%event-pure #f) (#%event-seq (#%event-pure 0))]
+      [(#%event-pure #t) => (#%event-pure (λ _ 1))]
+      [else (#%event-seq (#%event-pure 2))])))
 
   (test-case
     "expand quote"
@@ -656,6 +696,16 @@
       (#%event-pure 2))))
 
   (test-case
+    "reduce #%event-cond"
+    (check-reduce (cond) (#%event-cond))
+    (check-reduce
+     (cond [#f 0] [#t => (λ _ 1)] [else 2])
+     (#%event-cond
+      [(#%event-pure #f) (#%event-pure 0)]
+      [(#%event-pure #t) => (#%event-pure (λ _ 1))]
+      [else (#%event-pure 2)])))
+
+  (test-case
     "reduce args"
     (check-reduce (args) (#%event-args))
     (check-reduce
@@ -844,6 +894,16 @@
      (bind (case-lambda [(x) (pure 1)] [_ (pure -1)])
            (pure 2)
            (pure 3))))
+
+  (test-case
+    "realize #%event-cond"
+    (check-realize (cond) (event-cond))
+    (check-realize
+     (cond [#f 0] [#t => (λ _ 1)] [else 2])
+     (event-cond
+      [(pure #f) (pure 0)]
+      [(pure #t) => (pure (λ _ 1))]
+      [else (pure 2)])))
 
   (test-case
     "realize #%event-pure"

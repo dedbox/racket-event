@@ -44,6 +44,15 @@
     [(_ () E ...+) #'(seq E ...)]
     [(_ ([x V] bs ...) E ...+) #'(bind (λ (x) (event-let* (bs ...) E ...)) V)]))
 
+(define-syntax (event-cond stx)
+  (syntax-parse stx
+    #:datum-literals (=> else)
+    [(_) #'(pure (void))]
+    [(_ [else E ...+]) #'(seq E ...)]
+    [(_ [T => F] clause ...)
+     #'(bind (λ (t) (if t (app F (pure t)) (event-cond clause ...))) T)]
+    [(_ [T E ...+] clause ...) #'(test T (seq E ...) (event-cond clause ...))]))
+
 ;; event/sequential
 
 (define-syntax-rule (pure datum)
@@ -135,6 +144,10 @@
     (check
      = (sync (event-let* ([x (pure 1)] [y (pure (+ x 2))]) (pure (+ x y))))
      4))
+
+  (test-case
+    "event-cond"
+    (check-pred void? (sync (event-cond))))
 
   (test-case
     "pure"

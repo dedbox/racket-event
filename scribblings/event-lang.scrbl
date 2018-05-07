@@ -119,6 +119,18 @@ re-use.
 
 @defmodule[event/sequential]
 
+@defform[
+  (event-cond event-cond-clause ...)
+  #:grammar
+  [(event-cond-clause [test-evt then-body-evt ...+]
+                      [else then-body-evt ...+]
+                      [test-evt => proc-evt]
+                      [test-evt])]
+]{
+
+  ...
+}
+
 @defform[(pure datum)]{
 
   Lifts @var[datum] into a into a @rtech{synchronizable event}. Delays
