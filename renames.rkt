@@ -9,3 +9,5 @@
 (define-syntax choice (make-rename-transformer #'choice-evt))
 (define-syntax handle (make-rename-transformer #'handle-evt))
 (define-syntax replace (make-rename-transformer #'replace-evt))
+
+(define-syntax channel-put (make-rename-transformer #'channel-put-evt))
