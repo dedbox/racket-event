@@ -4,6 +4,7 @@
  event/base
  event/concurrent
  event/event
+ event/gate
  event/sequential)
 
 (provide
@@ -11,4 +12,5 @@
   event/base
   event/concurrent
   event/event
+  event/gate
   event/sequential))

@@ -472,3 +472,30 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
       (compose return list)))
   ]
 }
+
+@section{Gates}
+
+@defmodule[event/gate]
+
+A @deftech{gate} is a simple primitive for synchronizing many threads at once.
+A gate is either open or closed, and is initially closed. Threads
+synchronizing on a closed gate will block until the gate is opened. Once a
+gate is opened, it cannot be closed again.
+
+@defproc[(gate? [v any/c]) boolean?]{
+
+  Returns @racket[#t] if @var[v] is a @tech{gate}, @racket[#f] otherwise.
+
+}
+
+@defproc[(gate) gate?]{
+
+  Creates and returns a new closed gate.
+
+}
+
+@defproc[(open-gate [g gate?]) void?]{
+
+  Unblocks all threads blocked on the gate simultaneously.
+
+}
