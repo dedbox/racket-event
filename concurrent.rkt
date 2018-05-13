@@ -4,6 +4,7 @@
  event/renames
  event/sequential
  racket/contract/base
+ racket/list
  (for-syntax racket/base
              syntax/parse))
 
@@ -18,13 +19,13 @@
   [async-fmap* (-> procedure? (listof evt?) evt?)]
   [async-app (-> evt? evt? ... evt?)]
   [async-app* (-> evt? (listof evt?) evt?)]
-  [async-bind (-> (unconstrained-domain-> evt?) evt? ... evt?)]
-  [async-bind* (-> (unconstrained-domain-> evt?) (listof evt?) evt?)]))
+  [async-bind (-> evt? ... (unconstrained-domain-> evt?) evt?)]
+  [async-bind* (-> (listof evt?) (unconstrained-domain-> evt?) evt?)]))
 
 (define-syntax (async-let stx)
   (syntax-parse stx
     [(_ ([x:id V] ...) E ...+)
-     #'(async-bind (λ (x ...) (seq E ...)) V ...)]))
+     #'(async-bind V ... (λ (x ...) (seq E ...)))]))
 
 (define (async-set . Es)
   (async-set* Es))
@@ -72,10 +73,10 @@
 (define (async-app* F Es)
   (replace F (λ (f) (async-fmap* f Es))))
 
-(define (async-bind f . Es)
-  (async-bind* f Es))
+(define (async-bind . Es+f)
+  (async-bind* (drop-right Es+f 1) (last Es+f)))
 
-(define (async-bind* f Es)
+(define (async-bind* Es f)
   (replace (async-args* Es) f))
 
 ;;; Unit Tests
@@ -215,7 +216,7 @@
       (define As (map return as))
       (check
        = (apply + as)
-       (sync (async-bind* k As))
+       (sync (async-bind* As k))
        (sync (apply k as)))))
 
   (test-case
@@ -225,7 +226,7 @@
       (define Ms (map return ms))
       (check
        equal? ms
-       (sync (async-bind* (compose return list) Ms)))))
+       (sync (async-bind* Ms (compose return list))))))
 
   (test-case
     "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
@@ -236,6 +237,5 @@
       (define Ms (map return ms))
       (check
        = (* 2 (apply + ms))
-       (sync (async-bind* (λ ys (async-bind h (apply k ys))) Ms))
-       (sync (async-bind h (async-bind* k Ms))))))
-  )
+       (sync (async-bind* Ms (λ ys (async-bind (apply k ys) h))))
+       (sync (async-bind (async-bind* Ms k) h))))))

@@ -240,8 +240,8 @@ re-use.
 }
 
 @deftogether[(
-  @defproc[(bind [f (-> any/c ... evt?)] [E evt?] ...) evt?]
-  @defproc[(bind* [f (-> any/c ... evt?)] [Es (listof evt?)]) evt?]
+  @defproc[(bind [E evt?] ... [f (-> any/c ... evt?)]) evt?]
+  @defproc[(bind* [Es (listof evt?)] [f (-> any/c ... evt?)]) evt?]
 )]{
 
   Returns a @rtech{synchronizable event} that synchronizes @var[Es] in order
@@ -251,11 +251,11 @@ re-use.
   @example[
     (sync
      (bind
-      (compose return +)
       (pure 1)
       (pure 2)
-      (pure 3)))
-    (event-do (bind (compose return +) 1 2 3))
+      (pure 3)
+      (compose return +)))
+    (event-do (bind 1 2 3 (compose return +)))
   ]
 }
 
@@ -453,8 +453,8 @@ re-use.
 }
 
 @deftogether[(
-  @defproc[(async-bind [f (-> any/c ... evt?)] [E evt?] ...) evt?]
-  @defproc[(async-bind* [f (-> any/c ... evt?)] [Es (listof evt?)]) evt?]
+  @defproc[(async-bind [E evt?] ... [f (-> any/c ... evt?)]) evt?]
+  @defproc[(async-bind* [Es (listof evt?)] [f (-> any/c ... evt?)]) evt?]
 )]{
 
   Returns a @rtech{synchronizable event} that synchronizes @racket[#,(var E)
@@ -464,9 +464,9 @@ re-use.
   @example[
     (sync
      (async-bind
-      (compose return list)
       (seq (pure (print 1)) (pure 1))
       (seq (pure (print 2)) (pure 2))
-      (seq (pure (print 3)) (pure 3))))
+      (seq (pure (print 3)) (pure 3))
+      (compose return list)))
   ]
 }

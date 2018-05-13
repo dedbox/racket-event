@@ -4,6 +4,7 @@
  event/renames
  racket/contract/base
  racket/function
+ racket/list
  (for-syntax racket/base
              syntax/parse))
 
@@ -17,8 +18,8 @@
   [fmap* (->  procedure? (listof evt?) evt?)]
   [app (-> evt? evt? ... evt?)]
   [app* (-> evt? (listof evt?) evt?)]
-  [bind (-> (unconstrained-domain-> evt?) evt? ... evt?)]
-  [bind* (-> (unconstrained-domain-> evt?) (listof evt?) evt?)]
+  [bind (-> evt? ... (unconstrained-domain-> evt?) evt?)]
+  [bind* (-> (listof evt?) (unconstrained-domain-> evt?) evt?)]
   [seq (-> evt? evt? ... evt?)]
   [seq0 (-> evt? evt? ... evt?)]
   [test (-> evt? evt? evt? evt?)]
@@ -37,12 +38,12 @@
 
 (define-syntax (event-let stx)
   (syntax-parse stx
-    [(_ ([x V] ...) E ...) #'(bind (λ (x ...) (seq E ...)) V ...)]))
+    [(_ ([x V] ...) E ...) #'(bind V ... (λ (x ...) (seq E ...)))]))
 
 (define-syntax (event-let* stx)
   (syntax-parse stx
     [(_ () E ...+) #'(seq E ...)]
-    [(_ ([x V] bs ...) E ...+) #'(bind (λ (x) (event-let* (bs ...) E ...)) V)]))
+    [(_ ([x V] bs ...) E ...+) #'(bind V (λ (x) (event-let* (bs ...) E ...)))]))
 
 (define-syntax (event-cond stx)
   (syntax-parse stx
@@ -50,7 +51,7 @@
     [(_) #'(pure (void))]
     [(_ [else E ...+]) #'(seq E ...)]
     [(_ [T => F] clause ...)
-     #'(bind (λ (t) (if t (app F (pure t)) (event-cond clause ...))) T)]
+     #'(bind T (λ (t) (if t (app F (pure t)) (event-cond clause ...))))]
     [(_ [T E ...+] clause ...) #'(test T (seq E ...) (event-cond clause ...))]))
 
 ;; event/sequential
@@ -85,10 +86,10 @@
 (define (app* F Es)
   (replace F (λ (f) (fmap* f Es))))
 
-(define (bind f . Es)
-  (bind* f Es))
+(define (bind . Es+f)
+  (bind* (drop-right Es+f 1) (last Es+f)))
 
-(define (bind* f Es)
+(define (bind* Es f)
   (replace (args* Es) f))
 
 (define (seq E . Es)
@@ -184,10 +185,10 @@
     (check =
            (sync
             (bind
-             (compose return +)
              (pure 1)
              (pure 2)
-             (pure 3)))
+             (pure 3)
+             (compose return +)))
            6))
 
   (test-case
@@ -298,7 +299,7 @@
     (for ([a 10])
       (check
        = (add1 a)
-       (sync (bind k (return a)))
+       (sync (bind (return a) k))
        (sync (k a)))))
 
   (test-case
@@ -306,7 +307,7 @@
     (for ([m 10])
       (check
        = m
-       (sync (bind return (pure m)))
+       (sync (bind (pure m) return))
        (sync (pure m)))))
 
   (test-case
@@ -316,8 +317,8 @@
     (for ([m 10])
       (check
        = (+ 2 (* 3 m))
-       (sync (bind (λ (x) (bind h (k x))) (pure m)))
-       (sync (bind h (bind k (pure m)))))))
+       (sync (bind (pure m) (λ (x) (bind (k x) h))))
+       (sync (bind (bind (pure m) k) h)))))
 
   (test-case
     "seq"

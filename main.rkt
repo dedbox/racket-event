@@ -122,7 +122,7 @@
    [pattern (args ~! E:event ...) #:attr expand #'(#%event-args E.expand ...)]
    [pattern (fmap ~! f E:event ...) #:attr expand #'(#%event-fmap f E.expand ...)]
    [pattern (app ~! F:event E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
-   [pattern (bind ~! f E:event ...) #:attr expand #'(#%event-bind f E.expand ...)]
+   [pattern (bind ~! E:event ... f) #:attr expand #'(#%event-bind E.expand ... f)]
    [pattern (seq ~! E:event ...+) #:attr expand #'(#%event-seq E.expand ...)]
    [pattern (seq0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
    [pattern (test ~! E1:event E2:event E3:event)
@@ -137,7 +137,7 @@
    [pattern (async-fmap ~! f E:event ...) #:attr expand #'(#%event-async-fmap f E.expand ...)]
    [pattern (async-app ~! F:event E:event ...)
             #:attr expand #'(#%event-async-app F.expand E.expand ...)]
-   [pattern (async-bind ~! f E:event ...) #:attr expand #'(#%event-async-bind f E.expand ...)]
+   [pattern (async-bind ~! E:event ... f) #:attr expand #'(#%event-async-bind E.expand ... f)]
    ;; defaults
    [pattern x:id #:attr expand #'(#%event-pure x)]
    [pattern (F:event ~! E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
@@ -181,7 +181,7 @@
    [pattern (#%event-fmap ~! f E:expanded ...) #:attr reduce #'(#%event-fmap f E.reduce ...)]
    [pattern (#%event-app ~! F:expanded E:expanded ...)
             #:attr reduce #'(#%event-app F.reduce E.reduce ...)]
-   [pattern (#%event-bind ~! f E:expanded ...) #:attr reduce #'(#%event-bind f E.reduce ...)]
+   [pattern (#%event-bind ~! E:expanded ... f) #:attr reduce #'(#%event-bind E.reduce ... f)]
    [pattern (#%event-seq ~! E:expanded ...+) #:attr reduce #'(#%event-seq E.reduce ...)]
    [pattern (#%event-seq0 ~! E:expanded ...+) #:attr reduce #'(#%event-seq0 E.reduce ...)]
    [pattern (#%event-test ~! E1:expanded E2:expanded E3:expanded)
@@ -199,8 +199,8 @@
             #:attr reduce #'(#%event-async-fmap f E.reduce ...)]
    [pattern (#%event-async-app ~! F:expanded E:expanded ...)
             #:attr reduce #'(#%event-async-app F.reduce E.reduce ...)]
-   [pattern (#%event-async-bind ~! f E:expanded ...)
-            #:attr reduce #'(#%event-async-bind f E.reduce ...)]
+   [pattern (#%event-async-bind ~! E:expanded ... f)
+            #:attr reduce #'(#%event-async-bind E.reduce ... f)]
    ;; default
    [pattern _ #:attr reduce this-syntax])
 
@@ -230,9 +230,9 @@
    [pattern (#%event-let* ~! ([x:id V:reduced] ...) E:reduced)
             #:attr realize #'(event-let* ([x V.realize] ...) E.realize)]
    [pattern (#%event-app (#%event-lambda xs E:reduced) V:reduced ...)
-            #:attr realize #'(bind (lambda xs E.realize) V.realize ...)]
+            #:attr realize #'(bind V.realize ... (lambda xs E.realize))]
    [pattern (#%event-app (#%event-case-lambda [xs E:reduced] ...) V:reduced ...)
-            #:attr realize #'(bind (case-lambda [xs E.realize] ...) V.realize ...)]
+            #:attr realize #'(bind V.realize ... (case-lambda [xs E.realize] ...))]
    [pattern (#%event-cond c:reduced-cond-clause ...)
             #:attr realize #'(event-cond c.realize ...)]
    ;; event/sequential
@@ -242,7 +242,7 @@
    [pattern (#%event-fmap ~! f E:reduced ...) #:attr realize #'(fmap f E.realize ...)]
    [pattern (#%event-app ~! F:reduced E:reduced ...)
             #:attr realize #'(app F.realize E.realize ...)]
-   [pattern (#%event-bind ~! f E:reduced ...) #:attr realize #'(bind f E.realize ...)]
+   [pattern (#%event-bind ~! E:reduced ... f) #:attr realize #'(bind E.realize ... f)]
    [pattern (#%event-seq ~! E:reduced ...+) #:attr realize #'(seq E.realize ...)]
    [pattern (#%event-seq0 ~! E:reduced ...+) #:attr realize #'(seq0 E.realize ...)]
    [pattern (#%event-test ~! E1:reduced E2:reduced E3:reduced)
@@ -259,8 +259,8 @@
             #:attr realize #'(async-fmap (compose return f) E.realize ...)]
    [pattern (#%event-async-app ~! F:reduced E:reduced ...)
             #:attr realize #'(async-app F.realize E.realize ...)]
-   [pattern (#%event-async-bind ~! f E:reduced ...)
-            #:attr realize #'(async-bind f E.realize ...)])
+   [pattern (#%event-async-bind ~! E:reduced ... f)
+            #:attr realize #'(async-bind E.realize ... f)])
 
  (define (make-event stx-0 debugging?)
    (define stx-1 (syntax-parse stx-0 [e:event #'e.expand]))
@@ -510,12 +510,12 @@
     "expand bind"
     (check-expand (bind f) (#%event-bind f))
     (check-expand
-     (bind (compose return +) 1 2 3)
+     (bind 1 2 3 (compose return +))
      (#%event-bind
-      (compose return +)
       (#%event-pure 1)
       (#%event-pure 2)
-      (#%event-pure 3))))
+      (#%event-pure 3)
+      (compose return +))))
 
   (test-case
     "expand seq"
@@ -610,12 +610,12 @@
     "expand async-bind"
     (check-expand (async-bind f) (#%event-async-bind f))
     (check-expand
-     (async-bind f 1 2 3)
+     (async-bind 1 2 3 f)
      (#%event-async-bind
-      f
       (#%event-pure 1)
       (#%event-pure 2)
-      (#%event-pure 3))))
+      (#%event-pure 3)
+      f)))
 
   (test-case
     "expand <identifier>"
@@ -735,12 +735,12 @@
     "reduce bind"
     (check-reduce (bind f) (#%event-bind f))
     (check-reduce
-     (bind f 1 2 3)
+     (bind 1 2 3 f)
      (#%event-bind
-      f
       (#%event-pure 1)
       (#%event-pure 2)
-      (#%event-pure 3))))
+      (#%event-pure 3)
+      f)))
 
   (test-case
     "reduce seq"
@@ -835,12 +835,12 @@
     "reduce async-bind"
     (check-reduce (async-bind f) (#%event-async-bind f))
     (check-reduce
-     (async-bind f 1 2 3)
+     (async-bind 1 2 3 f)
      (#%event-async-bind
-      f
       (#%event-pure 1)
       (#%event-pure 2)
-      (#%event-pure 3))))
+      (#%event-pure 3)
+      f)))
 
   (test-case
     "reduce <default>"
@@ -882,18 +882,14 @@
     (check-realize ((λ _ 1)) (bind (lambda _ (pure 1))))
     (check-realize
      ((lambda (x y) (+ x y)) 1 2)
-     (bind (lambda (x y) (pure (+ x y)))
-           (pure 1)
-           (pure 2))))
+     (bind (pure 1) (pure 2) (lambda (x y) (pure (+ x y))))))
 
   (test-case
     "realize #%event-case-lambda app"
     (check-realize ((case-lambda)) (bind (case-lambda)))
     (check-realize
      ((case-lambda [(x) 1] [_ -1]) 2 3)
-     (bind (case-lambda [(x) (pure 1)] [_ (pure -1)])
-           (pure 2)
-           (pure 3))))
+     (bind (pure 2) (pure 3) (case-lambda [(x) (pure 1)] [_ (pure -1)]))))
 
   (test-case
     "realize #%event-cond"
@@ -942,12 +938,8 @@
     "realize #%event-bind"
     (check-realize (bind f) (bind f))
     (check-realize
-     (bind (compose return +) 1 2 3)
-     (bind
-      (compose return +)
-      (pure 1)
-      (pure 2)
-      (pure 3))))
+     (bind 1 2 3 (compose return +))
+     (bind (pure 1) (pure 2) (pure 3) (compose return +))))
 
   (test-case
     "realize #%event-seq"
@@ -1030,8 +1022,8 @@
     "realize #%event-async-bind"
     (check-realize (async-bind f) (async-bind f))
     (check-realize
-     (async-bind f 1 2 3)
-     (async-bind f (pure 1) (pure 2) (pure 3))))
+     (async-bind 1 2 3 f)
+     (async-bind (pure 1) (pure 2) (pure 3) f)))
 
   ;; MAKE
 
@@ -1051,7 +1043,7 @@
 
   (test-case
     "event-do bind"
-    (check = (event-do (bind (compose return +) 1 2 3)) 6))
+    (check = (event-do (bind 1 2 3 (compose return +))) 6))
 
   (test-case
     "event-do seq"
