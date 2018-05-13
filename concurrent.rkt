@@ -125,6 +125,11 @@
        (when (and (> k 1) (equal? ys xs))
          (loop)))))
 
+  (test-case
+    "async-set*"
+    (define ts (for/list ([_ 1000]) (thread (λ () (sleep 0.1)))))
+    (sync (fmap void (async-set* ts))))
+
   (define id values)
 
   (async-test-case
