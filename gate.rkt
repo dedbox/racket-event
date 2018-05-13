@@ -7,7 +7,7 @@
 (provide
  (contract-out
   [gate? predicate/c]
-  [rename make-gate gate (-> gate?)]
+  [make-gate (-> gate?)]
   [open-gate (-> gate? void?)]
   [gate-open? predicate/c]))
 
