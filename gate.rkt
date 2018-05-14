@@ -8,7 +8,7 @@
  (contract-out
   [gate? predicate/c]
   [make-gate (-> gate?)]
-  [open-gate (-> gate? void?)]
+  [open-gate (-> gate? evt?)]
   [gate-open? predicate/c]))
 
 (struct gate (thread) #:property prop:evt (λ (g) (fmap void (gate-thread g))))
