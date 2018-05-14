@@ -30,7 +30,7 @@
   (require rackunit)
 
   (test-case
-    "gate"
+      "gate"
     (define g (make-gate))
     (check-pred gate? g)
     (check-false (gate-open? g))

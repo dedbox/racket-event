@@ -88,7 +88,7 @@
 
   (define-syntax-rule (async-test-case str L reset push body ...)
     (test-case
-      str
+        str
       (define L null)
       (define (reset) (set! L null))
       (define (push x) (set! L (cons x L)))
@@ -113,20 +113,20 @@
        (loop))))
 
   (test-case
-   "async-set"
-   (for ([k 10])
-     (define xs (build-list k values))
-     (define Xs (map return xs))
-     (let loop ()
-       (define ys (sync (handle (apply async-set Xs) list)))
-       (check = (length ys) k)
-       (for ([j k])
-         (check-pred (curry member j) ys))
-       (when (and (> k 1) (equal? ys xs))
-         (loop)))))
+      "async-set"
+    (for ([k 10])
+      (define xs (build-list k values))
+      (define Xs (map return xs))
+      (let loop ()
+        (define ys (sync (handle (apply async-set Xs) list)))
+        (check = (length ys) k)
+        (for ([j k])
+          (check-pred (curry member j) ys))
+        (when (and (> k 1) (equal? ys xs))
+          (loop)))))
 
   (test-case
-    "async-set*"
+      "async-set*"
     (define ts (for/list ([_ 1000]) (thread (λ () (sleep 0.1)))))
     (sync (fmap void (async-set* ts))))
 
@@ -150,7 +150,7 @@
        (loop))))
 
   (test-case
-    "async-fmap id == id"
+      "async-fmap id == id"
     (for* ([k 10])
       (define Vs (build-list k return))
       (check
@@ -159,7 +159,7 @@
        (map sync Vs))))
 
   (test-case
-    "async-fmap (f . g) == async-fmap f . async-fmap g"
+      "async-fmap (f . g) == async-fmap f . async-fmap g"
     (for* ([k 10])
       (define f (curry * 2))
       (define g +)
@@ -172,14 +172,14 @@
                 (λ (x) (async-fmap f (pure x)))))))
 
   (test-case
-    "pure id <*> v = v"
+      "pure id <*> v = v"
     (for* ([k 10])
       (define vs (build-list k values))
       (define Vs (map return vs))
       (check equal? vs (sync (handle (async-app* (pure id) Vs) list)))))
 
   (test-case
-    "pure (.) <*> u <*> v <*> w = u <*> (v <*> w)"
+      "pure (.) <*> u <*> v <*> w = u <*> (v <*> w)"
     (define u (pure (curryr - 2)))
     (define v (pure (curry * 3)))
     (define w (pure (curry + 1)))
@@ -192,7 +192,7 @@
        (sync (async-app u (async-app v (async-app* w Xs)))))))
 
   (test-case
-    "pure f <*> pure x = pure (f x)"
+      "pure f <*> pure x = pure (f x)"
     (define f +)
     (for* ([k 10])
       (define xs (build-list k values))
@@ -203,7 +203,7 @@
        (sync (pure (apply f xs))))))
 
   (test-case
-    "u <*> pure y = pure ($ y) <*> u"
+      "u <*> pure y = pure ($ y) <*> u"
     (define u (pure +))
     (for* ([k 10])
       (define ys (build-list k values))
@@ -214,7 +214,7 @@
        (sync (async-app (pure (curryr apply ys)) u)))))
 
   (test-case
-    "return a >>= k  =  k a"
+      "return a >>= k  =  k a"
     (define k (λ xs (pure (apply + xs))))
     (for* ([x 10])
       (define as (build-list x values))
@@ -225,7 +225,7 @@
        (sync (apply k as)))))
 
   (test-case
-    "m >>= return  =  m"
+      "m >>= return  =  m"
     (for ([k 10])
       (define ms (build-list k values))
       (define Ms (map return ms))
@@ -234,7 +234,7 @@
        (sync (async-bind* Ms (compose return list))))))
 
   (test-case
-    "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
+      "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
     (define h (λ (x) (pure (* 2 x))))
     (define k (λ xs (pure (apply + xs))))
     (for ([x 10])

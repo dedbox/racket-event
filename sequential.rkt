@@ -136,22 +136,22 @@
   ;; doc examples
 
   (test-case
-    "event-let"
+      "event-let"
     (check = (sync (event-let ([x (pure 1)] [y (pure 2)]) (pure (+ x y))))
            3))
 
   (test-case
-    "event-let*"
+      "event-let*"
     (check
      = (sync (event-let* ([x (pure 1)] [y (pure (+ x 2))]) (pure (+ x y))))
      4))
 
   (test-case
-    "event-cond"
+      "event-cond"
     (check-pred void? (sync (event-cond))))
 
   (test-case
-    "pure"
+      "pure"
     (define N 0)
     (define evt (pure (set! N (add1 N))))
     (sync evt)
@@ -159,7 +159,7 @@
     (check = N 2))
 
   (test-case
-    "return"
+      "return"
     (define N 0)
     (define evt (return (set! N (add1 N))))
     (sync evt)
@@ -167,21 +167,21 @@
     (check = N 1))
 
   (test-case
-    "args"
+      "args"
     (check equal?
            (sync (handle (args (pure 1) (pure 2) (pure 3)) list))
            '(1 2 3)))
 
   (test-case
-    "fmap"
+      "fmap"
     (check = (sync (fmap + (pure 1) (pure 2) (pure 3))) 6))
 
   (test-case
-    "app"
+      "app"
     (check = (sync (app (pure +) (pure 1) (pure 2) (pure 3))) 6))
 
   (test-case
-    "bind"
+      "bind"
     (check =
            (sync
             (bind
@@ -192,20 +192,20 @@
            6))
 
   (test-case
-    "seq"
+      "seq"
     (check = (sync (seq (pure 1) (pure 2) (pure 3))) 3))
 
   (test-case
-    "seq0"
+      "seq0"
     (check = (sync (seq0 (pure 1) (pure 2) (pure 3))) 1))
 
   (test-case
-    "test"
+      "test"
     (check = (sync (test (pure #t) (pure 1) (pure 2))) 1)
     (check = (sync (test (pure #f) (pure 1) (pure 2))) 2))
 
   (test-case
-    "series"
+      "series"
     (check =
            (sync
             (series
@@ -215,7 +215,7 @@
            9))
 
   (test-case
-    "reduce"
+      "reduce"
     (check =
            (sync
             (reduce
@@ -225,7 +225,7 @@
            10))
 
   (test-case
-    "loop"
+      "loop"
     (check =
            (with-handlers ([number? values])
              (sync (loop (λ (x)
@@ -238,7 +238,7 @@
   ;; monad laws
 
   (test-case
-    "fmap id == id"
+      "fmap id == id"
     (for ([v 10])
       (check
        = v
@@ -246,7 +246,7 @@
        (sync (id (pure v))))))
 
   (test-case
-    "fmap (f . g) == fmap f . fmap g"
+      "fmap (f . g) == fmap f . fmap g"
     (for ([v 10])
       (check
        = (+ 2 (* 3 v))
@@ -256,7 +256,7 @@
               (pure v))))))
 
   (test-case
-    "pure id <*> v = v"
+      "pure id <*> v = v"
     (for ([v 10])
       (check
        = v
@@ -264,7 +264,7 @@
        (sync (pure v)))))
 
   (test-case
-    "pure (.) <*> u <*> v <*> w = u <*> (v <*> w)"
+      "pure (.) <*> u <*> v <*> w = u <*> (v <*> w)"
     (define u (pure (curry + 2)))
     (define v (pure (curry * 3)))
     (define w (pure (curry - 1)))
@@ -276,7 +276,7 @@
        )))
 
   (test-case
-    "pure f <*> pure x = pure (f x)"
+      "pure f <*> pure x = pure (f x)"
     (define f add1)
     (for ([x 10])
       (check
@@ -285,7 +285,7 @@
        (sync (pure (f x))))))
 
   (test-case
-    "u <*> pure y = pure ($ y) <*> u"
+      "u <*> pure y = pure ($ y) <*> u"
     (define u (pure (curry + 2)))
     (for ([y 10])
       (check
@@ -294,7 +294,7 @@
        (sync (app (pure (λ (f) (f y))) u)))))
 
   (test-case
-    "return a >>= k  =  k a"
+      "return a >>= k  =  k a"
     (define k (λ (x) (pure (add1 x))))
     (for ([a 10])
       (check
@@ -303,7 +303,7 @@
        (sync (k a)))))
 
   (test-case
-    "m >>= return  =  m"
+      "m >>= return  =  m"
     (for ([m 10])
       (check
        = m
@@ -311,7 +311,7 @@
        (sync (pure m)))))
 
   (test-case
-    "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
+      "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
     (define h (λ (x) (pure (+ 2 x))))
     (define k (λ (x) (pure (* 3 x))))
     (for ([m 10])
@@ -321,26 +321,26 @@
        (sync (bind (bind (pure m) k) h)))))
 
   (test-case
-    "seq"
+      "seq"
     (for ([v 10])
       (check
        = v
        (sync (seq (pure -1) (pure -2) (pure v))))))
 
   (test-case
-    "seq0"
+      "seq0"
     (for ([v 10])
       (check
        = v
        (sync (seq0 (pure v) (pure -2) (pure -3))))))
 
   (test-case
-    "test"
+      "test"
     (check = 1 (sync (test (pure #t) (pure 1) (pure 2))))
     (check = 2 (sync (test (pure #f) (pure 1) (pure 2)))))
 
   (test-case
-    "series"
+      "series"
     (check
      = 5
      (sync
@@ -348,7 +348,7 @@
              (for/list ([_ 5]) (λ (x) (pure (+ x 1))))))))
 
   (test-case
-    "reduce"
+      "reduce"
     (check
      = 10
      (sync
@@ -358,7 +358,7 @@
        0))))
 
   (test-case
-    "loop"
+      "loop"
     (check
      = 10
      (with-handlers ([number? values])

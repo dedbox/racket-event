@@ -18,7 +18,7 @@
       (raise-syntax-error #f "cannot evaluate abstract form" stx))
     ...
     (begin-for-syntax
-     (define-literal-set literals (id ...)))))
+      (define-literal-set literals (id ...)))))
 
 (define-literals abstract-literals
   #%event-esc
@@ -51,218 +51,218 @@
   #%event-curry)
 
 (begin-for-syntax
- (define-literal-set event-literals
-   (pure return args fmap app bind seq seq0 test series reduce loop
-         async-set async-args async-fmap async-app async-bind))
+  (define-literal-set event-literals
+    (pure return args fmap app bind seq seq0 test series reduce loop
+          async-set async-args async-fmap async-app async-bind))
 
- (define-literal-set racket-literals
-   (begin begin0 let let* lambda λ case-lambda if cond quote))
+  (define-literal-set racket-literals
+    (begin begin0 let let* lambda λ case-lambda if cond quote))
 
- (define-syntax-class cond-clause
-   #:description #f
-   #:attributes (expand)
-   #:datum-literals (=> else)
-   [pattern [else E:event ...+] #:attr expand #'[else (#%event-seq E.expand ...)]]
-   [pattern [T:event => E:event] #:attr expand #'[T.expand => E.expand]]
-   [pattern [T:event E:event ...+] #:attr expand #'[T.expand (#%event-seq E.expand ...)]])
+  (define-syntax-class cond-clause
+    #:description #f
+    #:attributes (expand)
+    #:datum-literals (=> else)
+    [pattern [else E:event ...+] #:attr expand #'[else (#%event-seq E.expand ...)]]
+    [pattern [T:event => E:event] #:attr expand #'[T.expand => E.expand]]
+    [pattern [T:event E:event ...+] #:attr expand #'[T.expand (#%event-seq E.expand ...)]])
 
- (define-syntax-class expanded-cond-clause
-   #:description #f
-   #:attributes (reduce)
-   #:datum-literals (=> else)
-   [pattern [else E:expanded] #:attr reduce #'[else E.reduce]]
-   [pattern [T:expanded => E:expanded] #:attr reduce #'[T.reduce => E.reduce]]
-   [pattern [T:expanded E:expanded] #:attr reduce #'[T.reduce E.reduce]])
+  (define-syntax-class expanded-cond-clause
+    #:description #f
+    #:attributes (reduce)
+    #:datum-literals (=> else)
+    [pattern [else E:expanded] #:attr reduce #'[else E.reduce]]
+    [pattern [T:expanded => E:expanded] #:attr reduce #'[T.reduce => E.reduce]]
+    [pattern [T:expanded E:expanded] #:attr reduce #'[T.reduce E.reduce]])
 
- (define-syntax-class reduced-cond-clause
-   #:description #f
-   #:attributes (realize)
-   #:datum-literals (=> else)
-   [pattern [else E:reduced] #:attr realize #'[else E.realize]]
-   [pattern [T:reduced => E:reduced] #:attr realize #'[T.realize => E.realize]]
-   [pattern [T:reduced E:reduced] #:attr realize #'[T.realize E.realize]])
+  (define-syntax-class reduced-cond-clause
+    #:description #f
+    #:attributes (realize)
+    #:datum-literals (=> else)
+    [pattern [else E:reduced] #:attr realize #'[else E.realize]]
+    [pattern [T:reduced => E:reduced] #:attr realize #'[T.realize => E.realize]]
+    [pattern [T:reduced E:reduced] #:attr realize #'[T.realize E.realize]])
 
- (define-syntax-class event
-   #:description "EXPAND"
-   #:attributes (expand)
-   #:commit
-   #:literal-sets (racket-literals event-literals)
-   #:datum-literals (esc)
-   [pattern (esc ~! datum) #:attr expand #'(#%event-esc datum)]
-   ;; racket/base
-   [pattern (begin ~! E:event ...+) #:attr expand #'(#%event-seq E.expand ...)]
-   [pattern (begin0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
-   [pattern (let ~! ([x:id V:event] ...) E:event ...+)
-            #:attr expand #'(#%event-let ([x V.expand] ...) (#%event-seq E.expand ...))]
-   [pattern (let* ~! ([x:id V:event] ...) E:event ...+)
-            #:attr expand #'(#%event-let* ([x V.expand] ...) (#%event-seq E.expand ...))]
-   [pattern ((~or lambda λ) ~! _ _ ...+) #:attr expand #`(#%event-pure #,this-syntax)]
-   [pattern (case-lambda ~! _ ...) #:attr expand #`(#%event-pure #,this-syntax)]
-   [pattern (if ~! E1:event E2:event E3:event)
-            #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
-   [pattern (cond ~! c:cond-clause ...) #:attr expand #'(#%event-cond c.expand ...)]
-   [pattern (quote ~! _) #:attr expand #`(#%event-pure #,this-syntax)]
-   [pattern (((~or lambda λ) ~! xs E:event ...+) V:event ...)
-            #:attr expand
-            #'(#%event-app (#%event-lambda xs (#%event-seq E.expand ...)) V.expand ...)]
-   [pattern ((case-lambda ~! [xs E:event ...+] ...) V:event ...)
-            #:attr expand
-            #'(#%event-app (#%event-case-lambda [xs (#%event-seq E.expand ...)] ...)
-                           V.expand ...)]
-   [pattern v:string #:attr expand #'(#%event-pure v)]
-   [pattern v:boolean #:attr expand #'(#%event-pure v)]
-   [pattern v:number #:attr expand #'(#%event-pure v)]
-   ;; event/sequential
-   [pattern (pure ~! datum) #:attr expand #'(#%event-pure datum)]
-   [pattern (return ~! e) #:attr expand #'(#%event-return e)]
-   [pattern (args ~! E:event ...) #:attr expand #'(#%event-args E.expand ...)]
-   [pattern (fmap ~! f E:event ...) #:attr expand #'(#%event-fmap f E.expand ...)]
-   [pattern (app ~! F:event E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
-   [pattern (bind ~! E:event ... f) #:attr expand #'(#%event-bind E.expand ... f)]
-   [pattern (seq ~! E:event ...+) #:attr expand #'(#%event-seq E.expand ...)]
-   [pattern (seq0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
-   [pattern (test ~! E1:event E2:event E3:event)
-            #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
-   [pattern (series ~! V:event f ...)
-            #:attr expand #'(#%event-series V.expand f ...)]
-   [pattern (reduce ~! f check v ...) #:attr expand #'(#%event-reduce f check v ...)]
-   [pattern (loop ~! f v ...) #:attr expand #'(#%event-loop f v ...)]
-   ;; event/concurrent
-   [pattern (async-set ~! E:event ...) #:attr expand #'(#%event-async-set E.expand ...)]
-   [pattern (async-args ~! E:event ...) #:attr expand #'(#%event-async-args E.expand ...)]
-   [pattern (async-fmap ~! f E:event ...) #:attr expand #'(#%event-async-fmap f E.expand ...)]
-   [pattern (async-app ~! F:event E:event ...)
-            #:attr expand #'(#%event-async-app F.expand E.expand ...)]
-   [pattern (async-bind ~! E:event ... f) #:attr expand #'(#%event-async-bind E.expand ... f)]
-   ;; defaults
-   [pattern x:id #:attr expand #'(#%event-pure x)]
-   [pattern (F:event ~! E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
-   [pattern _ #:fail-when #t "bad event expression syntax" #:attr expand #'#f])
+  (define-syntax-class event
+    #:description "EXPAND"
+    #:attributes (expand)
+    #:commit
+    #:literal-sets (racket-literals event-literals)
+    #:datum-literals (esc)
+    [pattern (esc ~! datum) #:attr expand #'(#%event-esc datum)]
+    ;; racket/base
+    [pattern (begin ~! E:event ...+) #:attr expand #'(#%event-seq E.expand ...)]
+    [pattern (begin0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
+    [pattern (let ~! ([x:id V:event] ...) E:event ...+)
+             #:attr expand #'(#%event-let ([x V.expand] ...) (#%event-seq E.expand ...))]
+    [pattern (let* ~! ([x:id V:event] ...) E:event ...+)
+             #:attr expand #'(#%event-let* ([x V.expand] ...) (#%event-seq E.expand ...))]
+    [pattern ((~or lambda λ) ~! _ _ ...+) #:attr expand #`(#%event-pure #,this-syntax)]
+    [pattern (case-lambda ~! _ ...) #:attr expand #`(#%event-pure #,this-syntax)]
+    [pattern (if ~! E1:event E2:event E3:event)
+             #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
+    [pattern (cond ~! c:cond-clause ...) #:attr expand #'(#%event-cond c.expand ...)]
+    [pattern (quote ~! _) #:attr expand #`(#%event-pure #,this-syntax)]
+    [pattern (((~or lambda λ) ~! xs E:event ...+) V:event ...)
+             #:attr expand
+             #'(#%event-app (#%event-lambda xs (#%event-seq E.expand ...)) V.expand ...)]
+    [pattern ((case-lambda ~! [xs E:event ...+] ...) V:event ...)
+             #:attr expand
+             #'(#%event-app (#%event-case-lambda [xs (#%event-seq E.expand ...)] ...)
+                            V.expand ...)]
+    [pattern v:string #:attr expand #'(#%event-pure v)]
+    [pattern v:boolean #:attr expand #'(#%event-pure v)]
+    [pattern v:number #:attr expand #'(#%event-pure v)]
+    ;; event/sequential
+    [pattern (pure ~! datum) #:attr expand #'(#%event-pure datum)]
+    [pattern (return ~! e) #:attr expand #'(#%event-return e)]
+    [pattern (args ~! E:event ...) #:attr expand #'(#%event-args E.expand ...)]
+    [pattern (fmap ~! f E:event ...) #:attr expand #'(#%event-fmap f E.expand ...)]
+    [pattern (app ~! F:event E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
+    [pattern (bind ~! E:event ... f) #:attr expand #'(#%event-bind E.expand ... f)]
+    [pattern (seq ~! E:event ...+) #:attr expand #'(#%event-seq E.expand ...)]
+    [pattern (seq0 ~! E:event ...+) #:attr expand #'(#%event-seq0 E.expand ...)]
+    [pattern (test ~! E1:event E2:event E3:event)
+             #:attr expand #'(#%event-test E1.expand E2.expand E3.expand)]
+    [pattern (series ~! V:event f ...)
+             #:attr expand #'(#%event-series V.expand f ...)]
+    [pattern (reduce ~! f check v ...) #:attr expand #'(#%event-reduce f check v ...)]
+    [pattern (loop ~! f v ...) #:attr expand #'(#%event-loop f v ...)]
+    ;; event/concurrent
+    [pattern (async-set ~! E:event ...) #:attr expand #'(#%event-async-set E.expand ...)]
+    [pattern (async-args ~! E:event ...) #:attr expand #'(#%event-async-args E.expand ...)]
+    [pattern (async-fmap ~! f E:event ...) #:attr expand #'(#%event-async-fmap f E.expand ...)]
+    [pattern (async-app ~! F:event E:event ...)
+             #:attr expand #'(#%event-async-app F.expand E.expand ...)]
+    [pattern (async-bind ~! E:event ... f) #:attr expand #'(#%event-async-bind E.expand ... f)]
+    ;; defaults
+    [pattern x:id #:attr expand #'(#%event-pure x)]
+    [pattern (F:event ~! E:event ...) #:attr expand #'(#%event-app F.expand E.expand ...)]
+    [pattern _ #:fail-when #t "bad event expression syntax" #:attr expand #'#f])
 
- (define-syntax-class expanded
-   #:description "REDUCE"
-   #:attributes (reduce)
-   #:commit
-   #:literal-sets (abstract-literals)
-   ;; eliminate single-element sequences
-   [pattern (#%event-seq E:expanded) #:attr reduce #'E.reduce]
-   [pattern (#%event-seq0 E:expanded) #:attr reduce #'E.reduce]
-   ;; applicative functor laws
-   [pattern (#%event-app (#%event-pure f) (#%event-pure x) ...)
-            #:with e:expanded #'(#%event-pure (f x ...))
-            #:attr reduce #'e.reduce]
-   [pattern (#%event-app (#%event-pure f) (#%event-pure x) E ...)
-            #:with e:expanded #'(#%event-app (#%event-curry f x) E ...)
-            #:attr reduce #'e.reduce]
-   [pattern (#%event-app (#%event-pure f) E ...)
-            #:with e:expanded #'(#%event-fmap f E ...)
-            #:attr reduce #'e.reduce]
-   [pattern (#%event-app (#%event-curry f x ...) (#%event-pure y) E ...)
-            #:with e:expanded #'(#%event-app (#%event-curry f x ... y) E ...)
-            #:attr reduce #'e.reduce]
-   [pattern (#%event-app (#%event-curry f x ...) E:expanded ...)
-            #:attr reduce #'(#%event-fmap (curry f x ...) E.reduce ...)]
-   ;; racket/base
-   [pattern (#%event-let ~! ([x:id V:expanded] ...) E:expanded)
-            #:attr reduce #'(#%event-let ([x V.reduce] ...) E.reduce)]
-   [pattern (#%event-let* ~! ([x:id V:expanded] ...) E:expanded)
-            #:attr reduce #'(#%event-let* ([x V.reduce] ...) E.reduce)]
-   [pattern (#%event-lambda ~! xs E:expanded) #:attr reduce #'(#%event-lambda xs E.reduce)]
-   [pattern (#%event-case-lambda ~! [xs E:expanded] ...)
-            #:attr reduce #'(#%event-case-lambda [xs E.reduce] ...)]
-   [pattern (#%event-cond ~! c:expanded-cond-clause ...)
-            #:attr reduce #'(#%event-cond c.reduce ...)]
-   ;; event/sequential
-   [pattern (#%event-args ~! E:expanded ...) #:attr reduce #'(#%event-args E.reduce ...)]
-   [pattern (#%event-fmap ~! f E:expanded ...) #:attr reduce #'(#%event-fmap f E.reduce ...)]
-   [pattern (#%event-app ~! F:expanded E:expanded ...)
-            #:attr reduce #'(#%event-app F.reduce E.reduce ...)]
-   [pattern (#%event-bind ~! E:expanded ... f) #:attr reduce #'(#%event-bind E.reduce ... f)]
-   [pattern (#%event-seq ~! E:expanded ...+) #:attr reduce #'(#%event-seq E.reduce ...)]
-   [pattern (#%event-seq0 ~! E:expanded ...+) #:attr reduce #'(#%event-seq0 E.reduce ...)]
-   [pattern (#%event-test ~! E1:expanded E2:expanded E3:expanded)
-            #:attr reduce #'(#%event-test E1.reduce E2.reduce E3.reduce)]
-   [pattern (#%event-series ~! V:expanded f ...)
-            #:attr reduce #'(#%event-series V.reduce f ...)]
-   [pattern (#%event-reduce ~! f check v ...) #:attr reduce #'(#%event-reduce f check v ...)]
-   [pattern (#%event-loop ~! f v ...) #:attr reduce #'(#%event-loop f v ...)]
-   ;; event/concurrent
-   [pattern (#%event-async-set ~! E:expanded ...)
-            #:attr reduce #'(#%event-async-set E.reduce ...)]
-   [pattern (#%event-async-args ~! E:expanded ...)
-            #:attr reduce #'(#%event-async-args E.reduce ...)]
-   [pattern (#%event-async-fmap ~! f E:expanded ...)
-            #:attr reduce #'(#%event-async-fmap f E.reduce ...)]
-   [pattern (#%event-async-app ~! F:expanded E:expanded ...)
-            #:attr reduce #'(#%event-async-app F.reduce E.reduce ...)]
-   [pattern (#%event-async-bind ~! E:expanded ... f)
-            #:attr reduce #'(#%event-async-bind E.reduce ... f)]
-   ;; default
-   [pattern _ #:attr reduce this-syntax])
+  (define-syntax-class expanded
+    #:description "REDUCE"
+    #:attributes (reduce)
+    #:commit
+    #:literal-sets (abstract-literals)
+    ;; eliminate single-element sequences
+    [pattern (#%event-seq E:expanded) #:attr reduce #'E.reduce]
+    [pattern (#%event-seq0 E:expanded) #:attr reduce #'E.reduce]
+    ;; applicative functor laws
+    [pattern (#%event-app (#%event-pure f) (#%event-pure x) ...)
+             #:with e:expanded #'(#%event-pure (f x ...))
+             #:attr reduce #'e.reduce]
+    [pattern (#%event-app (#%event-pure f) (#%event-pure x) E ...)
+             #:with e:expanded #'(#%event-app (#%event-curry f x) E ...)
+             #:attr reduce #'e.reduce]
+    [pattern (#%event-app (#%event-pure f) E ...)
+             #:with e:expanded #'(#%event-fmap f E ...)
+             #:attr reduce #'e.reduce]
+    [pattern (#%event-app (#%event-curry f x ...) (#%event-pure y) E ...)
+             #:with e:expanded #'(#%event-app (#%event-curry f x ... y) E ...)
+             #:attr reduce #'e.reduce]
+    [pattern (#%event-app (#%event-curry f x ...) E:expanded ...)
+             #:attr reduce #'(#%event-fmap (curry f x ...) E.reduce ...)]
+    ;; racket/base
+    [pattern (#%event-let ~! ([x:id V:expanded] ...) E:expanded)
+             #:attr reduce #'(#%event-let ([x V.reduce] ...) E.reduce)]
+    [pattern (#%event-let* ~! ([x:id V:expanded] ...) E:expanded)
+             #:attr reduce #'(#%event-let* ([x V.reduce] ...) E.reduce)]
+    [pattern (#%event-lambda ~! xs E:expanded) #:attr reduce #'(#%event-lambda xs E.reduce)]
+    [pattern (#%event-case-lambda ~! [xs E:expanded] ...)
+             #:attr reduce #'(#%event-case-lambda [xs E.reduce] ...)]
+    [pattern (#%event-cond ~! c:expanded-cond-clause ...)
+             #:attr reduce #'(#%event-cond c.reduce ...)]
+    ;; event/sequential
+    [pattern (#%event-args ~! E:expanded ...) #:attr reduce #'(#%event-args E.reduce ...)]
+    [pattern (#%event-fmap ~! f E:expanded ...) #:attr reduce #'(#%event-fmap f E.reduce ...)]
+    [pattern (#%event-app ~! F:expanded E:expanded ...)
+             #:attr reduce #'(#%event-app F.reduce E.reduce ...)]
+    [pattern (#%event-bind ~! E:expanded ... f) #:attr reduce #'(#%event-bind E.reduce ... f)]
+    [pattern (#%event-seq ~! E:expanded ...+) #:attr reduce #'(#%event-seq E.reduce ...)]
+    [pattern (#%event-seq0 ~! E:expanded ...+) #:attr reduce #'(#%event-seq0 E.reduce ...)]
+    [pattern (#%event-test ~! E1:expanded E2:expanded E3:expanded)
+             #:attr reduce #'(#%event-test E1.reduce E2.reduce E3.reduce)]
+    [pattern (#%event-series ~! V:expanded f ...)
+             #:attr reduce #'(#%event-series V.reduce f ...)]
+    [pattern (#%event-reduce ~! f check v ...) #:attr reduce #'(#%event-reduce f check v ...)]
+    [pattern (#%event-loop ~! f v ...) #:attr reduce #'(#%event-loop f v ...)]
+    ;; event/concurrent
+    [pattern (#%event-async-set ~! E:expanded ...)
+             #:attr reduce #'(#%event-async-set E.reduce ...)]
+    [pattern (#%event-async-args ~! E:expanded ...)
+             #:attr reduce #'(#%event-async-args E.reduce ...)]
+    [pattern (#%event-async-fmap ~! f E:expanded ...)
+             #:attr reduce #'(#%event-async-fmap f E.reduce ...)]
+    [pattern (#%event-async-app ~! F:expanded E:expanded ...)
+             #:attr reduce #'(#%event-async-app F.reduce E.reduce ...)]
+    [pattern (#%event-async-bind ~! E:expanded ... f)
+             #:attr reduce #'(#%event-async-bind E.reduce ... f)]
+    ;; default
+    [pattern _ #:attr reduce this-syntax])
 
- (define (reduce-event stx)
-   (syntax-parse stx
-     [e:expanded
-      (let ([stx* #'e.reduce])
-        ;; (pretty-write
-        ;;  `(XXX
-        ;;    ,(syntax->datum stx)
-        ;;    ,(syntax->datum stx*)))
-        (if (equal? (syntax->datum stx)
-                    (syntax->datum stx*))
-            stx*
-            (reduce-event stx*)))]))
+  (define (reduce-event stx)
+    (syntax-parse stx
+      [e:expanded
+       (let ([stx* #'e.reduce])
+         ;; (pretty-write
+         ;;  `(XXX
+         ;;    ,(syntax->datum stx)
+         ;;    ,(syntax->datum stx*)))
+         (if (equal? (syntax->datum stx)
+                     (syntax->datum stx*))
+             stx*
+             (reduce-event stx*)))]))
 
- (define-syntax-class reduced
-   #:description "REALIZE"
-   #:attributes (realize)
-   #:commit
-   #:literal-sets (abstract-literals)
-   ;; event
-   [pattern (#%event-esc ~! datum) #:attr realize #'datum]
-   ;; racket/base
-   [pattern (#%event-let ~! ([x:id V:reduced] ...) E:reduced)
-            #:attr realize #'(event-let ([x V.realize] ...) E.realize)]
-   [pattern (#%event-let* ~! ([x:id V:reduced] ...) E:reduced)
-            #:attr realize #'(event-let* ([x V.realize] ...) E.realize)]
-   [pattern (#%event-app (#%event-lambda xs E:reduced) V:reduced ...)
-            #:attr realize #'(bind V.realize ... (lambda xs E.realize))]
-   [pattern (#%event-app (#%event-case-lambda [xs E:reduced] ...) V:reduced ...)
-            #:attr realize #'(bind V.realize ... (case-lambda [xs E.realize] ...))]
-   [pattern (#%event-cond c:reduced-cond-clause ...)
-            #:attr realize #'(event-cond c.realize ...)]
-   ;; event/sequential
-   [pattern (#%event-pure ~! datum) #:attr realize #'(pure datum)]
-   [pattern (#%event-return ~! e) #:attr realize #'(return e)]
-   [pattern (#%event-args ~! E:reduced ...) #:attr realize #'(args E.realize ...)]
-   [pattern (#%event-fmap ~! f E:reduced ...) #:attr realize #'(fmap f E.realize ...)]
-   [pattern (#%event-app ~! F:reduced E:reduced ...)
-            #:attr realize #'(app F.realize E.realize ...)]
-   [pattern (#%event-bind ~! E:reduced ... f) #:attr realize #'(bind E.realize ... f)]
-   [pattern (#%event-seq ~! E:reduced ...+) #:attr realize #'(seq E.realize ...)]
-   [pattern (#%event-seq0 ~! E:reduced ...+) #:attr realize #'(seq0 E.realize ...)]
-   [pattern (#%event-test ~! E1:reduced E2:reduced E3:reduced)
-            #:attr realize #'(test E1.realize E2.realize E3.realize)]
-   [pattern (#%event-series ~! V:reduced f ...)
-            #:attr realize #'(series V.realize (compose return f) ...)]
-   [pattern (#%event-reduce ~! f check v ...)
-            #:attr realize #'(reduce (compose return f) check v ...)]
-   [pattern (#%event-loop ~! f v ...) #:attr realize #'(loop (compose return f) v ...)]
-   ;; event/concurrent
-   [pattern (#%event-async-set ~! E:reduced ...) #:attr realize #'(async-set E.realize ...)]
-   [pattern (#%event-async-args ~! E:reduced ...) #:attr realize #'(async-args E.realize ...)]
-   [pattern (#%event-async-fmap ~! f E:reduced ...)
-            #:attr realize #'(async-fmap (compose return f) E.realize ...)]
-   [pattern (#%event-async-app ~! F:reduced E:reduced ...)
-            #:attr realize #'(async-app F.realize E.realize ...)]
-   [pattern (#%event-async-bind ~! E:reduced ... f)
-            #:attr realize #'(async-bind E.realize ... f)])
+  (define-syntax-class reduced
+    #:description "REALIZE"
+    #:attributes (realize)
+    #:commit
+    #:literal-sets (abstract-literals)
+    ;; event
+    [pattern (#%event-esc ~! datum) #:attr realize #'datum]
+    ;; racket/base
+    [pattern (#%event-let ~! ([x:id V:reduced] ...) E:reduced)
+             #:attr realize #'(event-let ([x V.realize] ...) E.realize)]
+    [pattern (#%event-let* ~! ([x:id V:reduced] ...) E:reduced)
+             #:attr realize #'(event-let* ([x V.realize] ...) E.realize)]
+    [pattern (#%event-app (#%event-lambda xs E:reduced) V:reduced ...)
+             #:attr realize #'(bind V.realize ... (lambda xs E.realize))]
+    [pattern (#%event-app (#%event-case-lambda [xs E:reduced] ...) V:reduced ...)
+             #:attr realize #'(bind V.realize ... (case-lambda [xs E.realize] ...))]
+    [pattern (#%event-cond c:reduced-cond-clause ...)
+             #:attr realize #'(event-cond c.realize ...)]
+    ;; event/sequential
+    [pattern (#%event-pure ~! datum) #:attr realize #'(pure datum)]
+    [pattern (#%event-return ~! e) #:attr realize #'(return e)]
+    [pattern (#%event-args ~! E:reduced ...) #:attr realize #'(args E.realize ...)]
+    [pattern (#%event-fmap ~! f E:reduced ...) #:attr realize #'(fmap f E.realize ...)]
+    [pattern (#%event-app ~! F:reduced E:reduced ...)
+             #:attr realize #'(app F.realize E.realize ...)]
+    [pattern (#%event-bind ~! E:reduced ... f) #:attr realize #'(bind E.realize ... f)]
+    [pattern (#%event-seq ~! E:reduced ...+) #:attr realize #'(seq E.realize ...)]
+    [pattern (#%event-seq0 ~! E:reduced ...+) #:attr realize #'(seq0 E.realize ...)]
+    [pattern (#%event-test ~! E1:reduced E2:reduced E3:reduced)
+             #:attr realize #'(test E1.realize E2.realize E3.realize)]
+    [pattern (#%event-series ~! V:reduced f ...)
+             #:attr realize #'(series V.realize (compose return f) ...)]
+    [pattern (#%event-reduce ~! f check v ...)
+             #:attr realize #'(reduce (compose return f) check v ...)]
+    [pattern (#%event-loop ~! f v ...) #:attr realize #'(loop (compose return f) v ...)]
+    ;; event/concurrent
+    [pattern (#%event-async-set ~! E:reduced ...) #:attr realize #'(async-set E.realize ...)]
+    [pattern (#%event-async-args ~! E:reduced ...) #:attr realize #'(async-args E.realize ...)]
+    [pattern (#%event-async-fmap ~! f E:reduced ...)
+             #:attr realize #'(async-fmap (compose return f) E.realize ...)]
+    [pattern (#%event-async-app ~! F:reduced E:reduced ...)
+             #:attr realize #'(async-app F.realize E.realize ...)]
+    [pattern (#%event-async-bind ~! E:reduced ... f)
+             #:attr realize #'(async-bind E.realize ... f)])
 
- (define (make-event stx-0 debugging?)
-   (define stx-1 (syntax-parse stx-0 [e:event #'e.expand]))
-   (define stx-2 (reduce-event stx-1))
-   (define stx-3 (syntax-parse stx-2 [e:reduced #'e.realize]))
-   (if debugging? (values stx-0 stx-1 stx-2 stx-3) stx-3)))
+  (define (make-event stx-0 debugging?)
+    (define stx-1 (syntax-parse stx-0 [e:event #'e.expand]))
+    (define stx-2 (reduce-event stx-1))
+    (define stx-3 (syntax-parse stx-2 [e:reduced #'e.realize]))
+    (if debugging? (values stx-0 stx-1 stx-2 stx-3) stx-3)))
 
 (define-syntax (event stx)
   (syntax-parse stx
@@ -303,11 +303,11 @@
                 (syntax->datum #'v))]))
 
   (test-case
-    "expand esc"
+      "expand esc"
     (check-expand (esc 1) (#%event-esc 1)))
 
   (test-case
-    "expand begin"
+      "expand begin"
     (check-expand (begin 1) (#%event-seq (#%event-pure 1)))
     (check-expand
      (begin 1 2 3)
@@ -317,7 +317,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand begin0"
+      "expand begin0"
     (check-expand (begin0 1) (#%event-seq0 (#%event-pure 1)))
     (check-expand
      (begin0 1 2 3)
@@ -327,7 +327,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand let"
+      "expand let"
     (check-expand (let () 1) (#%event-let () (#%event-seq (#%event-pure 1))))
     (check-expand
      (let ([x 1] [y 2]) (+ x y))
@@ -341,7 +341,7 @@
         (#%event-pure y))))))
 
   (test-case
-    "expand let*"
+      "expand let*"
     (check-expand
      (let* () 1)
      (#%event-let* () (#%event-seq (#%event-pure 1))))
@@ -357,30 +357,30 @@
         (#%event-pure y))))))
 
   (test-case
-    "expand lambda"
+      "expand lambda"
     (check-expand (lambda _ 1) (#%event-pure (lambda _ 1)))
     (check-expand (lambda (x y) 1 2 3) (#%event-pure (lambda (x y) 1 2 3))))
 
   (test-case
-    "expand λ"
+      "expand λ"
     (check-expand (λ _ 1) (#%event-pure (λ _ 1)))
     (check-expand (λ (x y) 1 2 3) (#%event-pure (λ (x y) 1 2 3))))
 
   (test-case
-    "expand case-lambda"
+      "expand case-lambda"
     (check-expand (case-lambda) (#%event-pure (case-lambda)))
     (check-expand
      (case-lambda [() 0] [(x) 1] [(y z) 2] [_ -1])
      (#%event-pure (case-lambda [() 0] [(x) 1] [(y z) 2] [_ -1]))))
 
   (test-case
-    "expand if"
+      "expand if"
     (check-expand
      (if 1 2 3)
      (#%event-test (#%event-pure 1) (#%event-pure 2) (#%event-pure 3))))
 
   (test-case
-    "expand cond"
+      "expand cond"
     (check-expand (cond) (#%event-cond))
     (check-expand
      (cond [#f 0] [#t => (λ _ 1)] [else 2])
@@ -390,12 +390,12 @@
       [else (#%event-seq (#%event-pure 2))])))
 
   (test-case
-    "expand quote"
+      "expand quote"
     (check-expand (quote 1) (#%event-pure '1))
     (check-expand (quote (1 2 3)) (#%event-pure '(1 2 3))))
 
   (test-case
-    "expand lambda app"
+      "expand lambda app"
     (check-expand
      ((lambda _ 1) 2)
      (#%event-app (#%event-lambda _ (#%event-seq (#%event-pure 1)))
@@ -414,11 +414,11 @@
       (#%event-pure 2))))
 
   (test-case
-    "expand λ app"
+      "expand λ app"
     (check-expand
      ((λ _ 1) 2)
      (#%event-app (#%event-lambda _ (#%event-seq (#%event-pure 1)))
-                   (#%event-pure 2)))
+                  (#%event-pure 2)))
     (check-expand
      ((λ (x y) (+ x y)) 1 2)
      (#%event-app
@@ -433,7 +433,7 @@
       (#%event-pure 2))))
 
   (test-case
-    "expand case-lambda app"
+      "expand case-lambda app"
     (check-expand ((case-lambda)) (#%event-app (#%event-case-lambda)))
     (check-expand
      ((case-lambda [() 0] [(x) 1] [(y z) 2] [_ -1]) 1 2 3)
@@ -448,30 +448,30 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand <string>"
+      "expand <string>"
     (check-expand "a" (#%event-pure "a")))
 
   (test-case
-    "expand <boolean>"
+      "expand <boolean>"
     (check-expand #t (#%event-pure #t))
     (check-expand #f (#%event-pure #f)))
 
   (test-case
-    "expand <number>"
+      "expand <number>"
     (check-expand 1 (#%event-pure 1)))
 
   (test-case
-    "expand pure"
+      "expand pure"
     (check-expand (pure 1) (#%event-pure 1))
     (check-expand (pure (+ 1 2)) (#%event-pure (+ 1 2))))
 
   (test-case
-    "expand return"
+      "expand return"
     (check-expand (return 1) (#%event-return 1))
     (check-expand (return (+ 1 2)) (#%event-return (+ 1 2))))
 
   (test-case
-    "expand args"
+      "expand args"
     (check-expand (args) (#%event-args))
     (check-expand
      (args 1 2 3)
@@ -481,7 +481,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand fmap"
+      "expand fmap"
     (check-expand (fmap +) (#%event-fmap +))
     (check-expand
      (fmap + 1 2 3)
@@ -492,7 +492,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand app"
+      "expand app"
     (check-expand (app +) (#%event-app (#%event-pure +)))
     (check-expand
      (app + 1 2 3)
@@ -503,7 +503,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand bind"
+      "expand bind"
     (check-expand (bind f) (#%event-bind f))
     (check-expand
      (bind 1 2 3 (compose return +))
@@ -514,7 +514,7 @@
       (compose return +))))
 
   (test-case
-    "expand seq"
+      "expand seq"
     (check-expand (seq 1) (#%event-seq (#%event-pure 1)))
     (check-expand
      (seq 1 2 3)
@@ -524,7 +524,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand seq0"
+      "expand seq0"
     (check-expand (seq0 1) (#%event-seq0 (#%event-pure 1)))
     (check-expand
      (seq0 1 2 3)
@@ -534,7 +534,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand test"
+      "expand test"
     (check-expand
      (test #t 1 2)
      (#%event-test
@@ -543,25 +543,25 @@
       (#%event-pure 2))))
 
   (test-case
-    "expand series"
+      "expand series"
     (check-expand (series 1) (#%event-series (#%event-pure 1)))
     (check-expand
      (series 1 add1 (λ (x) (+ x 2)))
      (#%event-series (#%event-pure 1) add1 (λ (x) (+ x 2)))))
 
   (test-case
-    "expand reduce"
+      "expand reduce"
     (check-expand (reduce f = 0) (#%event-reduce f = 0))
     (check-expand
      (reduce sub1 (curry = 0) 10)
      (#%event-reduce sub1 (curry = 0) 10)))
 
   (test-case
-    "expand loop"
+      "expand loop"
     (check-expand (loop add1 0) (#%event-loop add1 0)))
 
   (test-case
-    "expand async-set"
+      "expand async-set"
     (check-expand (async-set) (#%event-async-set))
     (check-expand
      (async-set 1 2 3)
@@ -571,7 +571,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand async-args"
+      "expand async-args"
     (check-expand (async-args) (#%event-async-args))
     (check-expand
      (async-args 1 2 3)
@@ -581,7 +581,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand async-fmap"
+      "expand async-fmap"
     (check-expand (async-fmap f) (#%event-async-fmap f))
     (check-expand
      (async-fmap f 1 2 3)
@@ -592,7 +592,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand async-app"
+      "expand async-app"
     (check-expand (async-app f) (#%event-async-app (#%event-pure f)))
     (check-expand
      (async-app f 1 2 3)
@@ -603,7 +603,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "expand async-bind"
+      "expand async-bind"
     (check-expand (async-bind f) (#%event-async-bind f))
     (check-expand
      (async-bind 1 2 3 f)
@@ -614,11 +614,11 @@
       f)))
 
   (test-case
-    "expand <identifier>"
+      "expand <identifier>"
     (check-expand x (#%event-pure x)))
 
   (test-case
-    "expand <app>"
+      "expand <app>"
     (check-expand
      (+ 1 2 3)
      (#%event-app
@@ -638,12 +638,12 @@
                 (syntax->datum #'v))]))
 
   (test-case
-    "reduce single-element sequence"
+      "reduce single-element sequence"
     (check-reduce (seq 1) (#%event-pure 1))
     (check-reduce (seq0 1) (#%event-pure 1)))
 
   (test-case
-    "reduce curry"
+      "reduce curry"
     (check-reduce curry (#%event-pure curry))
     (check-reduce (curry +) (#%event-pure (curry +)))
     (check-reduce (curry + 1 2) (#%event-pure (curry + 1 2)))
@@ -651,7 +651,7 @@
     (check-reduce (app (pure f)) (#%event-pure (f))))
 
   (test-case
-    "reduce #%event-let"
+      "reduce #%event-let"
     (check-reduce (let () 1) (#%event-let () (#%event-pure 1)))
     (check-reduce
      (let ([x 1] [y (+ 2 3)]) (- x y))
@@ -661,7 +661,7 @@
       (#%event-pure (- x y)))))
 
   (test-case
-    "reduce #%event-let"
+      "reduce #%event-let"
     (check-reduce (let* () 1) (#%event-let* () (#%event-pure 1)))
     (check-reduce
      (let* ([x 1] [y (+ x 2)]) (+ x y))
@@ -671,7 +671,7 @@
       (#%event-pure (+ x y)))))
 
   (test-case
-    "reduce #%event-lambda"
+      "reduce #%event-lambda"
     (check-reduce ((λ _ 1)) (#%event-app (#%event-lambda _ (#%event-pure 1))))
     (check-reduce
      ((λ (x y) (+ x y)) 1 2)
@@ -681,7 +681,7 @@
       (#%event-pure 2))))
 
   (test-case
-    "reduce #%event-case-lambda"
+      "reduce #%event-case-lambda"
     (check-reduce ((case-lambda)) (#%event-app (#%event-case-lambda)))
     (check-reduce
      ((case-lambda [() 1] [_ -1]) 2)
@@ -692,7 +692,7 @@
       (#%event-pure 2))))
 
   (test-case
-    "reduce #%event-cond"
+      "reduce #%event-cond"
     (check-reduce (cond) (#%event-cond))
     (check-reduce
      (cond [#f 0] [#t => (λ _ 1)] [else 2])
@@ -702,7 +702,7 @@
       [else (#%event-pure 2)])))
 
   (test-case
-    "reduce args"
+      "reduce args"
     (check-reduce (args) (#%event-args))
     (check-reduce
      (args 1 2 3)
@@ -712,7 +712,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce fmap"
+      "reduce fmap"
     (check-reduce (fmap +) (#%event-fmap +))
     (check-reduce
      (fmap + 1 2 3)
@@ -723,12 +723,12 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce app"
+      "reduce app"
     (check-reduce (app f) (#%event-pure (f)))
     (check-reduce (app f 1 2 3) (#%event-pure (f 1 2 3))))
 
   (test-case
-    "reduce bind"
+      "reduce bind"
     (check-reduce (bind f) (#%event-bind f))
     (check-reduce
      (bind 1 2 3 f)
@@ -739,7 +739,7 @@
       f)))
 
   (test-case
-    "reduce seq"
+      "reduce seq"
     (check-reduce (seq 1) (#%event-pure 1))
     (check-reduce
      (seq 1 2 3)
@@ -749,7 +749,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce seq0"
+      "reduce seq0"
     (check-reduce (seq0 1) (#%event-pure 1))
     (check-reduce
      (seq0 1 2 3)
@@ -759,7 +759,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce test"
+      "reduce test"
     (check-reduce
      (test 1 2 3)
      (#%event-test
@@ -768,26 +768,26 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce series"
+      "reduce series"
     (check-reduce (series 1) (#%event-series (#%event-pure 1)))
     (check-reduce
      (series 1 add1 (λ (x) (+ x 2)))
      (#%event-series (#%event-pure 1) add1 (λ (x) (+ x 2)))))
 
   (test-case
-   "reduce reduce"
-   (check-reduce (reduce f = 1) (#%event-reduce f = 1))
-   (check-reduce
-    (reduce sub1 (λ (_ x) (= x 1)) 5)
-    (#%event-reduce sub1 (λ (_ x) (= x 1)) 5)))
+      "reduce reduce"
+    (check-reduce (reduce f = 1) (#%event-reduce f = 1))
+    (check-reduce
+     (reduce sub1 (λ (_ x) (= x 1)) 5)
+     (#%event-reduce sub1 (λ (_ x) (= x 1)) 5)))
 
   (test-case
-    "reduce loop"
+      "reduce loop"
     (check-reduce (loop f 1) (#%event-loop f 1))
     (check-reduce (loop f 1 2 3) (#%event-loop f 1 2 3)))
 
   (test-case
-    "reduce async-set"
+      "reduce async-set"
     (check-reduce (async-set) (#%event-async-set))
     (check-reduce
      (async-set 1 (+ 2 3))
@@ -796,7 +796,7 @@
       (#%event-pure (+ 2 3)))))
 
   (test-case
-    "reduce async-args"
+      "reduce async-args"
     (check-reduce (async-args) (#%event-async-args))
     (check-reduce
      (async-args 1 2 3)
@@ -806,7 +806,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce async-fmap"
+      "reduce async-fmap"
     (check-reduce (async-fmap f) (#%event-async-fmap f))
     (check-reduce
      (async-fmap f 1 2 3)
@@ -817,7 +817,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce async-app"
+      "reduce async-app"
     (check-reduce (async-app f) (#%event-async-app (#%event-pure f)))
     (check-reduce
      (async-app f 1 2 3)
@@ -828,7 +828,7 @@
       (#%event-pure 3))))
 
   (test-case
-    "reduce async-bind"
+      "reduce async-bind"
     (check-reduce (async-bind f) (#%event-async-bind f))
     (check-reduce
      (async-bind 1 2 3 f)
@@ -839,7 +839,7 @@
       f)))
 
   (test-case
-    "reduce <default>"
+      "reduce <default>"
     (check-reduce 1 (#%event-pure 1))
     (check-reduce (esc 1) (#%event-esc 1)))
 
@@ -856,39 +856,39 @@
                 (syntax->datum #'v))]))
 
   (test-case
-    "realize #%event-esc"
+      "realize #%event-esc"
     (check-realize (esc 1) 1))
 
   (test-case
-    "realize #%event-let"
+      "realize #%event-let"
     (check-realize (let () 1) (event-let () (pure 1)))
     (check-realize
      (let ([x 1] [y 2]) (+ x y))
      (event-let ([x (pure 1)] [y (pure 2)]) (pure (+ x y)))))
 
   (test-case
-    "realize #%event-let*"
+      "realize #%event-let*"
     (check-realize (let* () 1) (event-let* () (pure 1)))
     (check-realize
      (let* ([x 1] [y 2]) (+ x y))
      (event-let* ([x (pure 1)] [y (pure 2)]) (pure (+ x y)))))
 
   (test-case
-    "realize #%event-lambda app"
+      "realize #%event-lambda app"
     (check-realize ((λ _ 1)) (bind (lambda _ (pure 1))))
     (check-realize
      ((lambda (x y) (+ x y)) 1 2)
      (bind (pure 1) (pure 2) (lambda (x y) (pure (+ x y))))))
 
   (test-case
-    "realize #%event-case-lambda app"
+      "realize #%event-case-lambda app"
     (check-realize ((case-lambda)) (bind (case-lambda)))
     (check-realize
      ((case-lambda [(x) 1] [_ -1]) 2 3)
      (bind (pure 2) (pure 3) (case-lambda [(x) (pure 1)] [_ (pure -1)]))))
 
   (test-case
-    "realize #%event-cond"
+      "realize #%event-cond"
     (check-realize (cond) (event-cond))
     (check-realize
      (cond [#f 0] [#t => (λ _ 1)] [else 2])
@@ -898,16 +898,16 @@
       [else (pure 2)])))
 
   (test-case
-    "realize #%event-pure"
+      "realize #%event-pure"
     (check-realize 1 (pure 1)))
 
   (test-case
-    "realize #%event-return"
+      "realize #%event-return"
     (check-realize (return 1) (return 1))
     (check-realize (return (+ 1 2)) (return (+ 1 2))))
 
   (test-case
-    "realize #%event-args"
+      "realize #%event-args"
     (check-realize (args) (args))
     (check-realize
      (args 1 2 3)
@@ -916,14 +916,14 @@
            (pure 3))))
 
   (test-case
-    "realize #%event-fmap"
+      "realize #%event-fmap"
     (check-realize (fmap (f x)) (fmap (f x)))
     (check-realize
      (fmap + 1 2 3)
      (fmap + (pure 1) (pure 2) (pure 3))))
 
   (test-case
-    "realize #%event-app"
+      "realize #%event-app"
     (check-realize (app +) (pure (+)))
     (check-realize (app + 1 2 3) (pure (+ 1 2 3)))
     (check-realize
@@ -931,14 +931,14 @@
      (fmap (curry + 1) (pure (+ 2 3)))))
 
   (test-case
-    "realize #%event-bind"
+      "realize #%event-bind"
     (check-realize (bind f) (bind f))
     (check-realize
      (bind 1 2 3 (compose return +))
      (bind (pure 1) (pure 2) (pure 3) (compose return +))))
 
   (test-case
-    "realize #%event-seq"
+      "realize #%event-seq"
     (check-realize (seq 1) (pure 1))
     (check-realize
      (seq 1 2 3)
@@ -948,7 +948,7 @@
       (pure 3))))
 
   (test-case
-    "realize #%event-seq0"
+      "realize #%event-seq0"
     (check-realize (seq0 1) (pure 1))
     (check-realize
      (seq0 1 2 3)
@@ -958,7 +958,7 @@
       (pure 3))))
 
   (test-case
-    "realize #%event-test"
+      "realize #%event-test"
     (check-realize (test A B C) (test (pure A) (pure B) (pure C)))
     (check-realize
      (test (+ 1 2) (- 3 4) (* 5 6))
@@ -968,7 +968,7 @@
       (pure (* 5 6)))))
 
   (test-case
-    "realize #%event-series"
+      "realize #%event-series"
     (check-realize (series 1) (series (pure 1)))
     (check-realize
      (series 1 f g)
@@ -978,44 +978,44 @@
       (compose return g))))
 
   (test-case
-    "realize #%event-reduce"
+      "realize #%event-reduce"
     (check-realize (reduce f = 0) (reduce (compose return f) = 0))
     (check-realize (reduce f = 1 2 3) (reduce (compose return f) = 1 2 3)))
 
   (test-case
-    "realize #%event-loop"
+      "realize #%event-loop"
     (check-realize (loop f 0) (loop (compose return f) 0))
     (check-realize (loop f 1 2 3) (loop (compose return f) 1 2 3)))
 
   (test-case
-    "realize #%event-async-set"
+      "realize #%event-async-set"
     (check-realize (async-set) (async-set))
     (check-realize
      (async-set 1 2 3) (async-set (pure 1) (pure 2) (pure 3))))
 
   (test-case
-    "realize #%event-async-args"
+      "realize #%event-async-args"
     (check-realize (async-args) (async-args))
     (check-realize
      (async-args 1 2 3)
      (async-args (pure 1) (pure 2) (pure 3))))
 
   (test-case
-    "realize #%event-async-fmap"
+      "realize #%event-async-fmap"
     (check-realize (async-fmap f) (async-fmap (compose return f)))
     (check-realize
      (async-fmap f 1 2 3)
      (async-fmap (compose return f) (pure 1) (pure 2) (pure 3))))
 
   (test-case
-    "realize #%event-async-app"
+      "realize #%event-async-app"
     (check-realize (async-app f) (async-app (pure f)))
     (check-realize
      (async-app f 1 2 3)
      (async-app (pure f) (pure 1) (pure 2) (pure 3))))
 
   (test-case
-    "realize #%event-async-bind"
+      "realize #%event-async-bind"
     (check-realize (async-bind f) (async-bind f))
     (check-realize
      (async-bind 1 2 3 f)
@@ -1024,32 +1024,32 @@
   ;; MAKE
 
   (test-case
-    "event-do args"
+      "event-do args"
     (check equal?
            (call-with-values (λ () (event-do (args 1 2 3))) list)
            '(1 2 3)))
 
   (test-case
-    "event-do fmap"
+      "event-do fmap"
     (check = (event-do (fmap + 1 2 3)) 6))
 
   (test-case
-    "event-do app"
+      "event-do app"
     (check = (event-do (app + 1 2 3)) 6))
 
   (test-case
-    "event-do bind"
+      "event-do bind"
     (check = (event-do (bind 1 2 3 (compose return +))) 6))
 
   (test-case
-    "event-do seq"
+      "event-do seq"
     (check = (event-do (seq 1 2 3)) 3))
 
   (test-case
-    "event-do seq0"
+      "event-do seq0"
     (check = (event-do (seq0 1 2 3)) 1))
 
   (test-case
-    "event-do test"
+      "event-do test"
     (check = (event-do (test #t 1 2)) 1)
     (check = (event-do (test #f 1 2)) 2)))
