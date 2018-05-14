@@ -8,6 +8,3 @@
 
 (define (async-list . Es)
   (fmap list (async-set* Es)))
-
-(define (event-void . Es)
-  (fmap* void Es))
