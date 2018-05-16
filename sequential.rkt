@@ -9,7 +9,7 @@
              syntax/parse))
 
 (provide
- pure event-let event-let*
+ pure
  (contract-out
   [return (-> any/c evt?)]
   [args (-> evt? ... evt?)]
@@ -33,26 +33,6 @@
                (listof any/c) evt?)]
   [loop (-> (unconstrained-domain-> evt?) any/c ... evt?)]
   [loop* (-> (unconstrained-domain-> evt?) (listof any/c) evt?)]))
-
-;; racket/base
-
-(define-syntax (event-let stx)
-  (syntax-parse stx
-    [(_ ([x V] ...) E ...) #'(bind V ... (λ (x ...) (seq E ...)))]))
-
-(define-syntax (event-let* stx)
-  (syntax-parse stx
-    [(_ () E ...+) #'(seq E ...)]
-    [(_ ([x V] bs ...) E ...+) #'(bind V (λ (x) (event-let* (bs ...) E ...)))]))
-
-(define-syntax (event-cond stx)
-  (syntax-parse stx
-    #:datum-literals (=> else)
-    [(_) #'(pure (void))]
-    [(_ [else E ...+]) #'(seq E ...)]
-    [(_ [T => F] clause ...)
-     #'(bind T (λ (t) (if t (app F (pure t)) (event-cond clause ...))))]
-    [(_ [T E ...+] clause ...) #'(test T (seq E ...) (event-cond clause ...))]))
 
 ;; event/sequential
 
@@ -134,21 +114,6 @@
   (define id values)
 
   ;; doc examples
-
-  (test-case
-      "event-let"
-    (check = (sync (event-let ([x (pure 1)] [y (pure 2)]) (pure (+ x y))))
-           3))
-
-  (test-case
-      "event-let*"
-    (check
-     = (sync (event-let* ([x (pure 1)] [y (pure (+ x 2))]) (pure (+ x y))))
-     4))
-
-  (test-case
-      "event-cond"
-    (check-pred void? (sync (event-cond))))
 
   (test-case
       "pure"

@@ -9,7 +9,6 @@
              syntax/parse))
 
 (provide
- async-let
  (contract-out
   [async-set (-> evt? ... evt?)]
   [async-set* (-> (listof evt?) evt?)]
@@ -21,11 +20,6 @@
   [async-app* (-> evt? (listof evt?) evt?)]
   [async-bind (-> evt? ... (unconstrained-domain-> evt?) evt?)]
   [async-bind* (-> (listof evt?) (unconstrained-domain-> evt?) evt?)]))
-
-(define-syntax (async-let stx)
-  (syntax-parse stx
-    [(_ ([x:id V] ...) E ...+)
-     #'(async-bind V ... (λ (x ...) (seq E ...)))]))
 
 (define (async-set . Es)
   (async-set* Es))
@@ -93,24 +87,6 @@
       (define (reset) (set! L null))
       (define (push x) (set! L (cons x L)))
       body ...))
-
-  (async-test-case
-   "async-let"
-   L reset push
-   (let loop ()
-     (reset)
-     (check
-      = 3
-      (sync (async-let
-             ([x (seq (pure (push 0)) (pure 0))]
-              [y (seq (pure (push 1)) (pure 1))]
-              [z (seq (pure (push 2)) (pure 2))])
-             (pure (+ x y z)))))
-     (check = (length L) 3)
-     (for ([j 3])
-       (check-pred (curry member j) L))
-     (when (equal? L '(0 1 2))
-       (loop))))
 
   (test-case
       "async-set"

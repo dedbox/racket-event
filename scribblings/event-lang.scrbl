@@ -121,53 +121,6 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
 
 @defmodule[event/sequential]
 
-@defform[(event-let ([id val-evt] ...) body-evt ...+)]{
-
-  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
-  from left to right and binds the @var[id]s to the results, then synchronizes
-  the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
-  @var[body-evt] as its own.
-
-  @example[
-    (sync
-     (event-let ([x (pure 1)]
-                 [y (pure 2)])
-       (pure (+ x y))))
-  ]
-}
-
-@defform[(event-let* ([id val-evt] ...) body-evt ...+)]{
-
-  Like @racket[event-let], but synchronizes the @var[val-evt]s one by one,
-  binding each @var[id] as soon as the value is available. The @var[id]s are
-  bound in the remaining @var[val-evt]s as well as the @var[body]s, and the
-  @var[id]s need not be distinct; later bindings shadow earlier bindings.
-
-  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
-  from left to right and binds the @var[id]s to the results, then synchronizes
-  the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
-  @var[body-evt] as its own.
-
-  @example[
-    (sync
-     (event-let* ([x (pure 1)]
-                  [y (pure (+ x 2))])
-       (pure (+ x y))))
-  ]
-}
-
-@defform[
-  (event-cond event-cond-clause ...)
-  #:grammar
-  [(event-cond-clause [test-evt then-body-evt ...+]
-                      [else then-body-evt ...+]
-                      [test-evt => proc-evt]
-                      [test-evt])]
-]{
-
-  ...
-}
-
 @defform[(pure datum)]{
 
   Lifts @var[datum] into a into a @rtech{synchronizable event}. Delays
@@ -372,23 +325,6 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
 
 @defmodule[event/concurrent]
 
-@defform[(async-let ([x Ex] ...) E ...+)]{
-
-  Produces a @rtech{synchronizable event} that synchronizes @racket[#,(var Ex)
-  #,(var ...)] concurrently, binds the @rtech{synchronization results} to
-  @racket[#,(var x) #,(var ...)] internally, then becomes @racket[(seq #,(var
-  E) #,(var ...))].
-
-  @example[
-    (sync
-     (async-let
-         ([x (seq (pure (print 1)) (pure 1))]
-          [y (seq (pure (print 2)) (pure 2))]
-          [z (seq (pure (print 3)) (pure 3))])
-       (pure (values x y z))))
-  ]
-}
-
 @deftogether[(
   @defproc[(async-set [E evt?] ...) evt?]
   @defproc[(async-set* [Es (listof evt?)]) evt?]
@@ -498,4 +434,92 @@ gate is opened, it cannot be closed again.
 
   Unblocks all threads blocked on the gate simultaneously.
 
+}
+
+@section{Racket Base}
+
+@defmodule[event/base]
+
+@subsection{Sequential}
+
+@defform[(event-let ([id val-evt] ...) body-evt ...+)]{
+
+  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
+  from left to right and binds the @var[id]s to the results, then synchronizes
+  the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
+  @var[body-evt] as its own.
+
+  @example[
+    (sync
+     (event-let ([x (pure 1)]
+                 [y (pure 2)])
+       (pure (+ x y))))
+  ]
+}
+
+@defform[(event-let* ([id val-evt] ...) body-evt ...+)]{
+
+  Like @racket[event-let], but synchronizes the @var[val-evt]s one by one,
+  binding each @var[id] as soon as the value is available. The @var[id]s are
+  bound in the remaining @var[val-evt]s as well as the @var[body]s, and the
+  @var[id]s need not be distinct; later bindings shadow earlier bindings.
+
+  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
+  from left to right and binds the @var[id]s to the results, then synchronizes
+  the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
+  @var[body-evt] as its own.
+
+  @example[
+    (sync
+     (event-let* ([x (pure 1)]
+                  [y (pure (+ x 2))])
+       (pure (+ x y))))
+  ]
+}
+
+@defform[
+  (event-cond event-cond-clause ...)
+  #:grammar
+  [(event-cond-clause [test-evt then-body-evt ...+]
+                      [else then-body-evt ...+]
+                      [test-evt => proc-evt]
+                      [test-evt])]
+]{
+
+  ...
+}
+
+@deftogether[(
+  @defproc[(event-list [E evt?] ...) evt?]
+  @defproc[(event-list* [E evt?] ... [Es (listof evt?)]) evt?]
+)]{
+
+  Turns a list of events into an event that produces a list.
+
+  Returns a @rtech{synchronizable event} that synchronizes all @var[E]s in
+  order and then uses a list of the results as its @rtech{synchronization
+  result}.
+
+  @example[
+    (sync (event-list (pure 1) (pure 2) (pure 3)))
+  ]
+}
+
+@subsection{Concurrent}
+
+@defform[(async-let ([x Ex] ...) E ...+)]{
+
+  Produces a @rtech{synchronizable event} that synchronizes @racket[#,(var Ex)
+  #,(var ...)] concurrently, binds the @rtech{synchronization results} to
+  @racket[#,(var x) #,(var ...)] internally, then becomes @racket[(seq #,(var
+  E) #,(var ...))].
+
+  @example[
+    (sync
+     (async-let
+         ([x (seq (pure (print 1)) (pure 1))]
+          [y (seq (pure (print 2)) (pure 2))]
+          [z (seq (pure (print 3)) (pure 3))])
+       (pure (values x y z))))
+  ]
 }
