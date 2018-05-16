@@ -6,17 +6,35 @@
 [![Coverage Status](https://coveralls.io/repos/github/dedbox/racket-event-lang/badge.svg?branch=master)](https://coveralls.io/github/dedbox/racket-event-lang?branch=master)
 
 Event-lang is a Racket library that simplifies the creation of complex
-synchronizable events. It provides a primitive expression-lifting form, some
-event combinators, and a collection of functions that make progress by
-synchronizing sub-events, either concurrently or in a predictable sequence.
-The library also provides event-friendly alternatives to the functions and
-special forms of the base Racket library.
+synchronizable events. It provides a primitive expression-lifting form,
+
+```
+> (pure 123)
+#<evt>
+```
+
+some event combinators,
+
+```
+> (sync (fmap + (pure 1) (pure 2)))
+3
+> (sync (app (pure +) (pure 1) (pure 2)))
+3
+> (sync (bind (pure 1) (pure 2) (λ xs (pure (apply + xs)))))
+3
+```
+
+and a collection of event-friendly alternatives to base Racket forms and
+functions.
 
 ```
 > (sync
-   (event-let ([x (pure 1)]
-               [y (pure 2)]
-               [z (pure 3)])
-     (pure (list x y z))))
-6
+   (event-let
+    ([x (pure 1)]
+     [y (pure 2)])
+    (pure (list x y))))
+'(1 2)
 ```
+
+Composite events make progress by synchronizing sub-events, either
+concurrently or in a predictable sequence.
