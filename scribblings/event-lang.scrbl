@@ -31,13 +31,10 @@
      expr ...
    ])
 
-Event-lang is a DSL for creating @rtech{synchronizable events}.
-
-The @racketmodname[event/sequential] module provides a primitive lifting form
-(@racket[pure]) and a set of combinators for making composite events that
-synchronize sub-events sequentially. The @racketmodname[event/concurrent]
-module provides additional combinators for synchronizing sub-events
-opportunistically. The @racketmodname[event] module re-exports these bindings.
+Event-lang is a DSL for creating @rtech{synchronizable events}. It provides a
+primitive lifting form (@racket[pure]) and a set of combinators for making
+composite events that synchronize sub-events in a pre-determined sequence or
+simultaneously.
 
 @; The @racket[event] form translates an ordinary Racket expression into a
 @; @rtech{synchronizable event} that, when synchronized on, evaluates its
@@ -117,8 +114,6 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
 @defmodule[event]
 
 @section{Sequential Combinators}
-
-@defmodule[event/sequential]
 
 @defform[(pure datum)]{
 
@@ -322,8 +317,6 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
 
 @section{Concurrent Combinators}
 
-@defmodule[event/concurrent]
-
 @deftogether[(
   @defproc[(async-set [E evt?] ...) evt?]
   @defproc[(async-set* [Es (listof evt?)]) evt?]
@@ -408,14 +401,14 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
   ]
 }
 
-@section{Gates}
+@section{Synchronization Gates}
 
 @defmodule[event/gate]
 
 A @deftech{gate} is a simple primitive for synchronizing many threads at once.
-A gate is either open or closed, and is initially closed. Threads
+A gate is either opened or closed and is closed initially. Threads
 synchronizing on a closed gate will block until the gate is opened. Once a
-gate is opened, it cannot be closed again.
+gate is opened, it cannot be closed.
 
 @defproc[(gate? [v any/c]) boolean?]{
 
