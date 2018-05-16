@@ -33,8 +33,8 @@
 
 Event-lang is a DSL for creating @rtech{synchronizable events}. It provides a
 primitive lifting form (@racket[pure]) and a set of combinators for making
-composite events that synchronize sub-events in a pre-determined sequence or
-simultaneously.
+composite events that synchronize sub-events, either simultaneously or in a
+pre-determined sequence.
 
 @; The @racket[event] form translates an ordinary Racket expression into a
 @; @rtech{synchronizable event} that, when synchronized on, evaluates its
