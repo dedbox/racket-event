@@ -422,13 +422,15 @@ gate is opened, it cannot be closed.
 
 }
 
-@defproc[(open-gate [g gate?]) void?]{
+@defproc[(open-gate [g gate?]) evt?]{
 
-  Unblocks all threads blocked on the gate simultaneously.
+  Returns a @rtech{synchronizable event} that simultaneously unblocks all
+  threads attempting to synchronize on the gate. Becomes @rtech{ready for
+  synchronization} when the gate is opened.
 
 }
 
-@section{Racket Base}
+@section{Racket}
 
 @defmodule[event/base]
 
@@ -507,7 +509,7 @@ gate is opened, it cannot be closed.
 
   @example[
     (sync
-     (async-map
+     (event-map
       +
       (list (pure 1) (pure 2) (pure 3))
       (list (pure 4) (pure 5) (pure 6))))
@@ -545,6 +547,25 @@ gate is opened, it cannot be closed.
 
   @example[
     (sync (event-list (pure 1) (pure 2) (pure 3)))
+  ]
+}
+
+@defproc[(async-map [f procedure?] [Es (listof evt?)] ...+) evt?]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @var[Es] lists
+  simultaneously and then applies @var[f] to the @rtech{synchronization
+  results} of the elements, from the first elements to the last. The @var[f]
+  argument must accept the same number of arguments as the number of supplied
+  @var[Es]s, and all @var[Es]s must have the same number of elements. The
+  @rtech{synchronization result} is a list containing each result of @var[f]
+  in order.
+
+  @example[
+    (sync
+     (async-map
+      +
+      (list (pure 1) (pure 2) (pure 3))
+      (list (pure 4) (pure 5) (pure 6))))
   ]
 }
 
