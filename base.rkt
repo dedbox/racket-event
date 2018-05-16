@@ -13,15 +13,15 @@
  event-let event-let* event-cond
  (contract-out
   [event-list (-> evt? ... evt?)]
-  [event-list* (-> (listof evt?) evt?)]
+  [event-list* (-> evt? ... (listof evt?) evt?)]
   [event-map (-> procedure? (listof evt?) ... evt?)])
  async-let
  (contract-out
   [async-list (-> evt? ... evt?)]
-  [async-list* (-> (listof evt?) evt?)]
+  [async-list* (-> evt? ... (listof evt?) evt?)]
   [async-map (-> procedure? (listof evt?) ... evt?)]
   [async-void (-> evt? ... evt?)]
-  [async-void* (-> (listof evt?) evt?)]))
+  [async-void* (-> evt? ... (listof evt?) evt?)]))
 
 (define-syntax (event-let stx)
   (syntax-parse stx
