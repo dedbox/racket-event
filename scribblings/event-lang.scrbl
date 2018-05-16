@@ -46,7 +46,6 @@ opportunistically. The @racketmodname[event] module re-exports these bindings.
 @; lifted strategically to make large or long-lived events easier to create and
 @; re-use.
 
-
 @; @example[
 @;   (define ch (make-channel))
 @;   (sync
@@ -494,14 +493,31 @@ gate is opened, it cannot be closed again.
   @defproc[(event-list* [E evt?] ... [Es (listof evt?)]) evt?]
 )]{
 
-  Turns a list of events into an event that produces a list.
-
   Returns a @rtech{synchronizable event} that synchronizes all @var[E]s in
   order and then uses a list of the results as its @rtech{synchronization
   result}.
 
   @example[
     (sync (event-list (pure 1) (pure 2) (pure 3)))
+  ]
+}
+
+@defproc[(event-map [f procedure?] [Es (listof evt?)] ...+) evt?]{
+
+  Returns a @rtech{synchronizable event} that synchronizes the elements of the
+  @var[Es] lists and applies @var[f] to the @rtech{synchronization results} of
+  the elements, from the first elements to the last. The @var[f] argument must
+  accept the same number of arguments as the number of supplied @var[Es]s, and
+  all @var[Es]s must have the same number of elements. The
+  @rtech{synchronization result} is a list containing each result of @var[f]
+  in order.
+
+  @example[
+    (sync
+     (async-map
+      +
+      (list (pure 1) (pure 2) (pure 3))
+      (list (pure 4) (pure 5) (pure 6))))
   ]
 }
 
@@ -521,5 +537,34 @@ gate is opened, it cannot be closed again.
           [y (seq (pure (print 2)) (pure 2))]
           [z (seq (pure (print 3)) (pure 3))])
        (pure (values x y z))))
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-list [E evt?] ...) evt?]
+  @defproc[(async-list* [E evt?] ... [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that synchronizes all @var[E]s
+  simultaneously and becomes @rtech{ready for synchronization} when all the
+  @var[E]s are ready. The @rtech{synchronization result} is a list of the
+  results, in order.
+
+  @example[
+    (sync (event-list (pure 1) (pure 2) (pure 3)))
+  ]
+}
+
+@deftogether[(
+  @defproc[(async-void [E evt?] ...) evt?]
+  @defproc[(async-void* [E evt?] ... [Es (listof evt?)]) evt?]
+)]{
+
+  Returns a @rtech{synchronizable event} that synchronizes all @var[E]s
+  simultaneously and becomes @rtech{ready for synchronization} when all the
+  @var[E]s are ready. The @rtech{synchronization result} is a single void.
+
+  @example[
+    (sync (async-void (pure 1) (pure 2) (pure 3)))
   ]
 }
