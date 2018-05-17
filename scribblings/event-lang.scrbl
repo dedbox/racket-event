@@ -31,10 +31,47 @@
      expr ...
    ])
 
-Event-lang is a DSL for creating @rtech{synchronizable events}. It provides a
-primitive lifting form (@racket[pure]) and a set of combinators for making
-composite events that synchronize sub-events, either simultaneously or in a
-predictable sequence.
+Event-lang is a Racket library that simplifies the creation of complex
+synchronizable events. It provides a primitive expression lifting form,
+
+@example[(pure 123)]
+
+some event combinators,
+
+@example[
+  (sync (fmap + (pure 1) (pure 2)))
+  (sync (app (pure +) (pure 1) (pure 2)))
+  (sync (bind (pure 1) (pure 2) (λ xs (pure (apply + xs)))))
+]
+
+and a collection of event-friendly alternatives to base Racket forms and
+functions.
+
+@example[
+  (sync
+   (event-let
+    ([x (pure 1)]
+     [y (pure 2)])
+    (pure (list x y))))
+]
+
+Composite events make progress by synchronizing constituent events, either
+concurrently or in a predictable sequence.
+
+@example[(sync (async-set (pure 1) (pure 2) (pure 3)))]
+
+The event-lang project has three outstanding objectives:
+
+@itemlist[
+  @item{@emph{Provide a sophisticated lifting form} to simplify usage of the
+    provided constructs.}
+  @item{@emph{Provide a full-blown @racketmodfont{#lang event/racket/base}}
+    for producing whole modules of events and event constructors from ordinary
+    Racket code in a principled manner.}
+  @item{@emph{Provide support for static analysis of synchronization
+    behaviors.}}
+  #:style 'ordered
+]
 
 @; The @racket[event] form translates an ordinary Racket expression into a
 @; @rtech{synchronizable event} that, when synchronized on, evaluates its
