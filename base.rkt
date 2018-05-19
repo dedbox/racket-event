@@ -34,12 +34,14 @@
 
 (define-syntax (event-cond stx)
   (syntax-parse stx
-    #:datum-literals (=> else)
+    #:literals (=> else)
     [(_) #'(pure (void))]
     [(_ [else E ...+]) #'(seq E ...)]
     [(_ [T => F] clause ...)
-     #'(bind T (λ (t) (if t (app F (pure t)) (event-cond clause ...))))]
-    [(_ [T E ...+] clause ...) #'(test T (seq E ...) (event-cond clause ...))]))
+     #'(bind T (λ (v) (if v (app F (pure v)) (event-cond clause ...))))]
+    [(_ [T E ...+] clause ...)
+     #'(test T (seq E ...) (event-cond clause ...))]
+    [(_ [E]) #'E]))
 
 (define (rest-args Es+Es*)
   (append (drop-right Es+Es* 1) (last Es+Es*)))
@@ -94,7 +96,15 @@
      4))
 
   (test-case "event-cond"
-    (check-pred void? (sync (event-cond))))
+    (check-pred void? (sync (event-cond)))
+    (check = (sync (event-cond [else (pure 1) (pure 2)])) 2)
+    (check = (sync (event-cond [(pure #t) (pure 1)] [(pure #t) (pure 2)])) 1)
+    (check = (sync (event-cond [(pure #t) (pure 1)] [(pure #f) (pure 2)])) 1)
+    (check = (sync (event-cond [(pure #f) (pure 1)] [(pure #t) (pure 2)])) 2)
+    (check-pred void? (sync (event-cond [(pure #f) (pure 1)]
+                                        [(pure #f) (pure 2)])))
+    (check = (sync (event-cond [(pure #t) => (pure (λ (v) (if v 2 3)))])) 2)
+    (check = (sync (event-cond [(pure 1)])) 1))
 
   ;; Concurrent
 
