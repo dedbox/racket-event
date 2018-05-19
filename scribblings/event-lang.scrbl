@@ -661,7 +661,7 @@ gate is opened, it cannot be closed.
   results, in order.
 
   @example[
-    (sync (event-list (pure 1) (pure 2) (pure 3)))
+    (sync (async-list (pure 1) (pure 2) (pure 3)))
   ]
 }
 
