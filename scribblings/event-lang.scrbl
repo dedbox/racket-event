@@ -10,7 +10,7 @@
              racket/base
              racket/contract/base))
 
-@(random-seed 5)
+@(random-seed 7)
 
 @(define (rtech . args)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") args))
@@ -56,11 +56,32 @@ functions.
 ]
 
 Composite events make progress by synchronizing constituent events, either
-concurrently or in a predictable sequence.
+concurrently or in a predictable sequence. Synchronization results can be
+ordered as specified,
 
-@example[(sync (async-set (pure 1) (pure 2) (pure 3)))]
+@example[
+  (let ([t0 (current-inexact-milliseconds)])
+    (define (now) (- (current-inexact-milliseconds) t0))
+    (sync
+     (async-args
+      (pure (cons 1 (now)))
+      (pure (cons 2 (now)))
+      (pure (cons 3 (now))))))
+]
 
-The event-lang project has three outstanding objectives:
+or as completed.
+
+@example[
+  (let ([t0 (current-inexact-milliseconds)])
+    (define (now) (- (current-inexact-milliseconds) t0))
+    (sync
+     (async-set
+      (pure (cons 1 (now)))
+      (pure (cons 2 (now)))
+      (pure (cons 3 (now))))))
+]
+
+The project has three outstanding objectives:
 
 @itemlist[
   @item{@emph{Provide a sophisticated lifting form} to simplify usage of the
@@ -69,7 +90,9 @@ The event-lang project has three outstanding objectives:
     for producing whole modules of events and event constructors from ordinary
     Racket code in a principled manner.}
   @item{@emph{Provide support for static analysis of synchronization
-    behaviors.}}
+    behaviors.} Event programming in Racket is a curious form of
+    meta-programming, and a few simple compile-time checks could reduce
+    cognitive overhead.}
   #:style 'ordered
 ]
 
