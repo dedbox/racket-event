@@ -531,16 +531,71 @@ gate is opened, it cannot be closed.
   ]
 }
 
-@defform[
+@defform/subs[
   (event-cond event-cond-clause ...)
-  #:grammar
   [(event-cond-clause [test-evt then-body-evt ...+]
-                      [else then-body-evt ...+]
-                      [test-evt => proc-evt]
+                      [@#,(racket else) then-body-evt ...+]
+                      [test-evt @#,(racket =>) proc-evt]
                       [test-evt])]
 ]{
 
-  ...
+  Creates a @rtech{synchronizable event}. If no @var[event-cond-clause]s are
+  present, the @rtech{synchronization result} is @(values void-const).
+
+  An @var[event-cond-clause] that starts with @racket[else] must be the last
+  @var[event-cond-clause].
+
+  If only a @racket[[else then-body-evt ...+]] is present, then the
+  @var[then-body-evt]s are synchronized. The @rtech{synchronization result}
+  from all but the last @var[then-body-evt] are ignored. The
+  @rtech{synchronization result} of the last @var[then-body-evt] is the
+  @rtech{synchronization result} for the whole @racket[event-cond] form.
+
+  Otherwise, the first @var[test-evt] is synchronized. If it produces
+  @racket[#f], then the @rtech{synchronization result} is the same as an
+  @racket[event-cond] form with the remaining @var[event-cond-clauses].
+
+  @specsubform[[test-evt then-body-evt ...+]]{
+
+    The @var[then-body-evt]s are synchronized in order, and the
+    @rtech{synchronization result} from all but the last @var[then-body-evt]
+    are ignored. The @rtech{synchronization result} of the last
+    @var[then-body-evt] provides the result for the whole @racket[event-cond]
+    form.
+
+  }
+
+  @specsubform[[test-evt => proc-evt]]{
+
+    The @var[proc-evt] is synchronized, and it must produce a procedure that
+    accepts one argument, otherwise the @racket[exn:fail:contract] exception
+    is raised. The procedure is applied to the @rtech{synchronization result}
+    of @var[test-evt]. The @rtech{synchronization result} for the whole
+    @racket[event-cond] form is the values returned by the procedure call.
+
+  }
+
+  @specsubform[[test-evt]]{
+
+    The @rtech{synchronization result} of @var[test-evt] is provided as the
+    @rtech{synchronization result} of the @racket[event-cond] form.
+
+  }
+
+  Examples:
+  @example[
+    (sync (event-cond))
+    (sync (event-cond [else (pure 5)]))
+    (sync
+     (event-cond
+      [(pure (positive? -5)) (pure (error "doesn't get here"))]
+      [(pure (zero? -5)) (pure (error "doesn't get here, either"))]
+      [(pure (positive? 5)) (pure 'here)]))
+    (sync
+     (event-cond
+      [(pure (member 2 '(1 2 3))) => (pure (lambda (l) (map - l)))]))
+    (sync (event-cond [(pure (member 2 '(1 2 3)))]))
+  ]
 }
 
 @deftogether[(
