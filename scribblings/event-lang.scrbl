@@ -498,7 +498,7 @@ gate is opened, it cannot be closed.
 
 @defform[(event-let ([id val-evt] ...) body-evt ...+)]{
 
-  Creates a @rtech{synchronizable event} that Synchronizes the @var[val-evt]s
+  Creates a @rtech{synchronizable event} that synchronizes the @var[val-evt]s
   from left to right and binds the @var[id]s to the results, then synchronizes
   the @var[body-evt]s. Uses the @rtech{synchronization result} of its final
   @var[body-evt] as its own.
