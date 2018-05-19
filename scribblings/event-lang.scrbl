@@ -635,10 +635,12 @@ gate is opened, it cannot be closed.
 
 @defform[(async-let ([x Ex] ...) E ...+)]{
 
-  Produces a @rtech{synchronizable event} that synchronizes @racket[#,(var Ex)
-  #,(var ...)] concurrently, binds the @rtech{synchronization results} to
-  @racket[#,(var x) #,(var ...)] internally, then becomes @racket[(seq #,(var
-  E) #,(var ...))].
+  Produces a @rtech{synchronizable event} that synchronizes @var[Ex]s
+  concurrently, binds the @rtech{synchronization results} to @var[x]s
+  internally, and synchronizes the @var[E]s. The @rtech{synchronization
+  results} from all but the last @var[E] are ignored. The
+  @rtech{synchronization result} of the last @var[E] is the
+  @rtech{synchronization result} for the whole @racket[async-let] form.
 
   @example[
     (sync
