@@ -490,7 +490,16 @@ gate is opened, it cannot be closed.
 
 }
 
-@section{Racket}
+@defproc[(gated [g gate?] [E evt?]) evt?]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @var[E] and becomes
+  @rtech{ready for synchronization} when @var[g] is opened. The
+  @rtech{synchronization result} is the @rtech{synchronization result} of
+  @var[E].
+
+}
+
+@section{Racket base}
 
 @defmodule[event/base]
 
