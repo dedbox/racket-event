@@ -23,6 +23,8 @@
   [async-void (-> evt? ... evt?)]
   [async-void* (-> evt? ... (listof evt?) evt?)]))
 
+;;; Syntactic Forms
+
 (define-syntax (event-let stx)
   (syntax-parse stx
     [(_ ([x V] ...) E ...) #'(bind V ... (λ (x ...) (seq E ...)))]))
@@ -46,13 +48,19 @@
 (define (rest-args Es+Es*)
   (append (drop-right Es+Es* 1) (last Es+Es*)))
 
-;; Sequential
+;;; Pairs and Lists
 
-(define (event-list . Es)
-  (event-list* Es))
+;; Pairs Constructors and Selectors
 
-(define (event-list* . Es+Es*)
-  (fmap list (args* (rest-args Es+Es*))))
+(define event-pair? (curry fmap pair?))
+(define event-null? (curry fmap null?))
+(define event-cons (curry fmap cons))
+(define event-car (curry fmap car))
+(define event-cdr (curry fmap cdr))
+(define event-null (pure null))
+(define event-list? (curry fmap list?))
+(define event-list (curry fmap list))
+(define event-list* (curry fmap list*))
 
 (define (event-map f . Ess)
   (fmap* (curry map f) (map event-list* Ess)))
@@ -105,6 +113,50 @@
                                         [(pure #f) (pure 2)])))
     (check = (sync (event-cond [(pure #t) => (pure (λ (v) (if v 2 3)))])) 2)
     (check = (sync (event-cond [(pure 1)])) 1))
+
+  ;; Pairs and Lists
+
+  (test-case "event-pair?"
+    (check-true (sync (event-pair? (pure (cons 1 2)))))
+    (check-false (sync (event-pair? (pure null))))
+    (check-false (sync (event-pair? (pure 3)))))
+
+  (test-case "event-null?"
+    (check-true (sync (event-null? event-null)))
+    (check-true (sync (event-null? (pure null))))
+    (check-false (sync (event-null? (pure (cons 1 2)))))
+    (check-false (sync (event-null? (pure 3)))))
+
+  (test-case "event-cons"
+    (check equal? (sync (event-cons (pure 1) (pure 2))) (cons 1 2)))
+
+  (test-case "event-car"
+    (check = (sync (event-car (pure '(1)))) 1))
+
+  (test-case "event-cdr"
+    (check-pred null? (sync (event-cdr (pure '(1))))))
+
+  (test-case "event-null"
+    (check-pred null? (sync event-null)))
+
+  (test-case "event-list?"
+    (check-true (sync (event-list? event-null)))
+    (check-true (sync (event-list? (pure null))))
+    (check-true (sync (event-list? (pure '(1)))))
+    (check-false (sync (event-list? (pure (cons 1 2)))))
+    (check-false (sync (event-list? (pure 3)))))
+
+  (test-case "event-list"
+    (check-pred null? (sync (event-list)))
+    (check equal? (sync (event-list (pure 1))) '(1))
+    (check equal? (sync (event-list (pure 1) (pure 2))) '(1 2)))
+
+  (test-case "event-list*"
+    (check-pred null? (sync (event-list* event-null)))
+    (check equal? (sync (event-list* (pure '(1 2))))
+           '(1 2))
+    (check equal? (sync (event-list* (pure 1) (pure 2) (pure '(3 4))))
+           '(1 2 3 4)))
 
   ;; Concurrent
 
