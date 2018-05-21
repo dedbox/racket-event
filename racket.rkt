@@ -12,6 +12,13 @@
 (provide
  event-let event-let* event-cond
  (contract-out
+  [event-pair? (-> evt? evt?)]
+  [event-null? (-> evt? evt?)]
+  [event-cons (-> evt? evt? evt?)]
+  [event-car (-> evt? evt?)]
+  [event-cdr (-> evt? evt?)]
+  [event-null evt?]
+  [event-list? (-> evt? evt?)]
   [event-list (-> evt? ... evt?)]
   [event-list* (-> evt? ... (listof evt?) evt?)]
   [event-map (-> procedure? (listof evt?) ... evt?)])
