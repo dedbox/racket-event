@@ -33,6 +33,8 @@
 
 @table-of-contents[]
 
+@section{Introduction}
+
 Event-lang is a Racket library that simplifies the creation of complex
 synchronizable events. It provides a primitive expression lifting form,
 
@@ -298,7 +300,7 @@ The project has three outstanding objectives:
   ]
 }
 
-@section{Concurrent Combinators}
+@subsection{Concurrent Combinators}
 
 @deftogether[(
   @defproc[(async-set [E evt?] ...) evt?]
@@ -384,7 +386,7 @@ The project has three outstanding objectives:
   ]
 }
 
-@section{Synchronization Gates}
+@subsection{Synchronization Gates}
 
 @defmodule[event/gate]
 
@@ -422,11 +424,11 @@ gate is opened, it cannot be closed.
 
 }
 
-@section{Racket}
+@subsection{Racket}
 
 @defmodule[event/racket]
 
-@subsection{Syntactic Forms}
+@subsubsection{Syntactic Forms}
 
 @defform[(event-let ([id val-evt] ...) body-evt ...+)]{
 
@@ -551,7 +553,7 @@ gate is opened, it cannot be closed.
   ]
 }
 
-@subsection{Pairs and Lists}
+@subsubsection{Pairs and Lists}
 
 @deftogether[(
   @defproc[(event-list [E evt?] ...) evt?]
@@ -586,7 +588,10 @@ gate is opened, it cannot be closed.
   ]
 }
 
-@subsection{Concurrent Pairs and Lists}
+@subsubsection{Concurrent Syntactic Forms}
+
+
+@subsubsection{Concurrent Pairs and Lists}
 
 @deftogether[(
   @defproc[(async-list [E evt?] ...) evt?]
