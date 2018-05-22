@@ -532,27 +532,6 @@ gate is opened, it cannot be closed.
   ]
 }
 
-@subsubsection{Concurrent}
-
-@defform[(async-let ([x Ex] ...) E ...+)]{
-
-  Produces a @rtech{synchronizable event} that synchronizes @var[Ex]s
-  concurrently, binds the @rtech{synchronization results} to @var[x]s
-  internally, and synchronizes the @var[E]s. The @rtech{synchronization
-  results} from all but the last @var[E] are ignored. The
-  @rtech{synchronization result} of the last @var[E] is the
-  @rtech{synchronization result} for the whole @racket[async-let] form.
-
-  @example[
-    (sync
-     (async-let
-         ([x (seq (pure (print 1)) (pure 1))]
-          [y (seq (pure (print 2)) (pure 2))]
-          [z (seq (pure (print 3)) (pure 3))])
-       (pure (values x y z))))
-  ]
-}
-
 @subsubsection{Pairs and Lists}
 
 @deftogether[(
@@ -590,6 +569,24 @@ gate is opened, it cannot be closed.
 
 @subsubsection{Concurrent Syntactic Forms}
 
+@defform[(async-let ([x Ex] ...) E ...+)]{
+
+  Produces a @rtech{synchronizable event} that synchronizes @var[Ex]s
+  concurrently, binds the @rtech{synchronization results} to @var[x]s
+  internally, and synchronizes the @var[E]s. The @rtech{synchronization
+  results} from all but the last @var[E] are ignored. The
+  @rtech{synchronization result} of the last @var[E] is the
+  @rtech{synchronization result} for the whole @racket[async-let] form.
+
+  @example[
+    (sync
+     (async-let
+         ([x (seq (pure (print 1)) (pure 1))]
+          [y (seq (pure (print 2)) (pure 2))]
+          [z (seq (pure (print 3)) (pure 3))])
+       (pure (values x y z))))
+  ]
+}
 
 @subsubsection{Concurrent Pairs and Lists}
 
