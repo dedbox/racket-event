@@ -499,11 +499,11 @@ gate is opened, it cannot be closed.
 
 }
 
-@section{Racket base}
+@section{Racket}
 
-@defmodule[event/base]
+@defmodule[event/racket]
 
-@subsection{Sequential}
+@subsection{Syntactic Forms}
 
 @defform[(event-let ([id val-evt] ...) body-evt ...+)]{
 
@@ -607,6 +607,29 @@ gate is opened, it cannot be closed.
   ]
 }
 
+@subsubsection{Concurrent}
+
+@defform[(async-let ([x Ex] ...) E ...+)]{
+
+  Produces a @rtech{synchronizable event} that synchronizes @var[Ex]s
+  concurrently, binds the @rtech{synchronization results} to @var[x]s
+  internally, and synchronizes the @var[E]s. The @rtech{synchronization
+  results} from all but the last @var[E] are ignored. The
+  @rtech{synchronization result} of the last @var[E] is the
+  @rtech{synchronization result} for the whole @racket[async-let] form.
+
+  @example[
+    (sync
+     (async-let
+         ([x (seq (pure (print 1)) (pure 1))]
+          [y (seq (pure (print 2)) (pure 2))]
+          [z (seq (pure (print 3)) (pure 3))])
+       (pure (values x y z))))
+  ]
+}
+
+@subsection{Pairs and Lists}
+
 @deftogether[(
   @defproc[(event-list [E evt?] ...) evt?]
   @defproc[(event-list* [E evt?] ... [Es (listof evt?)]) evt?]
@@ -640,26 +663,7 @@ gate is opened, it cannot be closed.
   ]
 }
 
-@subsection{Concurrent}
-
-@defform[(async-let ([x Ex] ...) E ...+)]{
-
-  Produces a @rtech{synchronizable event} that synchronizes @var[Ex]s
-  concurrently, binds the @rtech{synchronization results} to @var[x]s
-  internally, and synchronizes the @var[E]s. The @rtech{synchronization
-  results} from all but the last @var[E] are ignored. The
-  @rtech{synchronization result} of the last @var[E] is the
-  @rtech{synchronization result} for the whole @racket[async-let] form.
-
-  @example[
-    (sync
-     (async-let
-         ([x (seq (pure (print 1)) (pure 1))]
-          [y (seq (pure (print 2)) (pure 2))]
-          [z (seq (pure (print 3)) (pure 3))])
-       (pure (values x y z))))
-  ]
-}
+@subsection{Concurrent Pairs and Lists}
 
 @deftogether[(
   @defproc[(async-list [E evt?] ...) evt?]
