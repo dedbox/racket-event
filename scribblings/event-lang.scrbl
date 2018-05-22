@@ -31,6 +31,8 @@
      expr ...
    ])
 
+@table-of-contents[]
+
 Event-lang is a Racket library that simplifies the creation of complex
 synchronizable events. It provides a primitive expression lifting form,
 
