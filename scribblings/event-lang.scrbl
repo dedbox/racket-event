@@ -248,11 +248,9 @@ The results are memoized so multiple syncs don't replay side effects.
   @rtech{synchronization result} is the evaluation result.
 
   @example[
-    (define N 0)
-    (define evt (pure (set! N (add1 N))))
+    (define evt (pure (writeln (+ 1 2))))
     (sync evt)
     (sync evt)
-    N
   ]
 }
 
@@ -263,11 +261,9 @@ The results are memoized so multiple syncs don't replay side effects.
   @rtech{synchronization result}.
 
   @example[
-    (define N 0)
-    (define evt (return (set! N (add1 N))))
+    (define evt (return (writeln (+ 1 2))))
     (sync evt)
     (sync evt)
-    N
   ]
 }
 
@@ -376,8 +372,8 @@ The results are memoized so multiple syncs don't replay side effects.
     (sync
      (series
       (pure 1)
-      (compose return (curry + 2))
-      (compose return (curry * 3))))
+      (λ (x) (return (+ x 2)))
+      (λ (x) (return (* x 3)))))
   ]
 }
 
@@ -425,11 +421,9 @@ The results are memoized so multiple syncs don't replay side effects.
 
   @example[
     (with-handlers ([number? values])
-      (sync (loop (λ (x)
-                    (if (< x 10)
-                        (pure (add1 x))
-                        (raise x)))
-                  0)))
+      (sync
+       (loop (λ (x) (if (< x 10) (pure (+ x 1)) (raise x)))
+             0)))
   ]
 }
 
