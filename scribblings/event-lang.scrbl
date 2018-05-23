@@ -100,6 +100,139 @@ The project has three outstanding objectives:
   #:style 'ordered
 ]
 
+@subsection{Some examples}
+
+@subsubsection[#:style '(toc-hidden unnumbered)]{Wait until a bunch of stuff is done}
+
+@example[
+  (define ch (make-channel))
+  (sync
+   (async-void*
+    (append (for/list ([i 10])
+              (thread (λ () (channel-put ch i))))
+            (for/list ([_ 10])
+              (thread (λ () (write (channel-get ch))))))))
+]
+
+@subsubsection[#:style '(toc-hidden unnumbered)]{Do the same thing many times}
+
+@example[
+  (define (channel-dup-evt cs v)
+    (async-void* (map (curryr channel-put-evt v) cs)))
+]
+
+With some background getters,
+
+@example[
+  (define cs (build-list 5 (λ _ (make-channel))))
+  (define ts
+    (for/list ([c cs] [i 5])
+      (thread (λ () (writeln (cons i (channel-get c)))))))
+]
+
+it's ready for synchronization.
+
+@example[
+  (sync (seq (channel-dup-evt cs 'X) (async-void* ts)))
+]
+
+@subsubsection[#:style '(toc-hidden unnumbered)]{Generate the natural numbers}
+
+@example[
+  (define nat
+    (let ([n 0]) (pure (begin0 n (set! n (add1 n))))))
+]
+
+@racketid[nat] acts like a generator.
+
+@example[
+  (sync nat)
+  (sync nat)
+  (sync nat)
+]
+
+@racketid[nat] is handy for generating indices and unique keys in bulk through
+repetition.
+
+@example[
+  (sync (event-list* (make-list 4 nat)))
+]
+
+@subsubsection[#:style '(toc-hidden unnumbered)]{Fibonacci numbers}
+
+@example[
+  (define (naive-fib n)
+    (case n
+      [(0) (pure 0)]
+      [(1) (pure 1)]
+      [else (fmap + (naive-fib (- n 1)) (naive-fib (- n 2)))]))
+]
+
+Of course, the naive implementation is very slow.
+
+@example[
+  (eval:alts
+   (time (sync (naive-fib 29)))
+   (eval:result
+    (racketresult 514229)
+    "cpu time: 5826 real time: 5831 gc time: 1004"
+    ""))
+]
+
+This one:
+
+@example[
+  (define fib
+    (let ([a 1] [b 0])
+      (pure (begin0 b (set!-values (a b) (values (+ a b) a))))))
+]
+
+is much faster.
+
+@example[
+  (time (last (sync (event-list* (make-list 30 fib)))))
+]
+
+@racketid[nat] and @racketid[fib] can be combined to build an index.
+
+@examples[
+  #:eval event-evaluator
+  #:hidden
+  (define nat
+    (let ([n 0]) (pure (begin0 n (set! n (add1 n))))))
+  (define fib
+    (let ([a 1] [b 0])
+      (pure (begin0 b (set!-values (a b) (values (+ a b) a))))))
+]
+
+@example[
+  (define fibs (make-hash))
+  (sync
+   (async-void*
+    (make-list 30 (fmap (curry hash-set! fibs) nat fib))))
+  (hash-ref fibs 29)
+  (hash-ref fibs 15)
+]
+
+@subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
+
+@example[
+  (define (promise thunk)
+    (define result #f)
+    (bind (thread (λ ()
+                    (define vs (call-with-values thunk list))
+                    (set! result (pure (apply values vs)))))
+          (λ _ result)))
+]
+
+The results are memoized so multiple syncs don't replay side effects.
+
+@example[
+  (define p (promise (λ () (writeln 123) 4)))
+  (sync p)
+  (sync p)
+]
+
 @; -----------------------------------------------------------------------------
 
 @section{Reference}
