@@ -33,6 +33,8 @@
 
 @table-of-contents[]
 
+@; =============================================================================
+
 @section{Introduction}
 
 Event-lang is a Racket library that simplifies the creation of complex
@@ -99,6 +101,8 @@ The project has three outstanding objectives:
     cognitive overhead.}
   #:style 'ordered
 ]
+
+@; -----------------------------------------------------------------------------
 
 @subsection{Some examples}
 
@@ -233,11 +237,13 @@ The results are memoized so multiple syncs don't replay side effects.
   (sync p)
 ]
 
-@; -----------------------------------------------------------------------------
+@; =============================================================================
 
 @section{Reference}
 
 @defmodule[event]
+
+@; -----------------------------------------------------------------------------
 
 @subsection{Sequential Combinators}
 
@@ -427,6 +433,8 @@ The results are memoized so multiple syncs don't replay side effects.
   ]
 }
 
+@; -----------------------------------------------------------------------------
+
 @subsection{Concurrent Combinators}
 
 @deftogether[(
@@ -513,6 +521,8 @@ The results are memoized so multiple syncs don't replay side effects.
   ]
 }
 
+@; -----------------------------------------------------------------------------
+
 @subsection{Synchronization Gates}
 
 @defmodule[event/gate]
@@ -551,9 +561,13 @@ gate is opened, it cannot be closed.
 
 }
 
+@; -----------------------------------------------------------------------------
+
 @subsection{Racket}
 
 @defmodule[event/racket]
+
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 @subsubsection{Syntactic Forms}
 
@@ -659,6 +673,8 @@ gate is opened, it cannot be closed.
   ]
 }
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection{Pairs and Lists}
 
 @deftogether[(
@@ -694,6 +710,8 @@ gate is opened, it cannot be closed.
   ]
 }
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection{Concurrent Syntactic Forms}
 
 @defform[(async-let ([x Ex] ...) E ...+)]{
@@ -714,6 +732,8 @@ gate is opened, it cannot be closed.
        (pure (values x y z))))
   ]
 }
+
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 @subsubsection{Concurrent Pairs and Lists}
 
