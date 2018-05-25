@@ -16,6 +16,7 @@
   [args* (-> (listof evt?) evt?)]
   [fmap (-> procedure? evt? ... evt?)]
   [fmap* (->  procedure? (listof evt?) evt?)]
+  [join (-> evt? evt?)]
   [app (-> evt? evt? ... evt?)]
   [app* (-> evt? (listof evt?) evt?)]
   [bind (-> evt? ... (unconstrained-domain-> evt?) evt?)]
@@ -59,6 +60,9 @@
 
 (define (fmap* f Es)
   (handle (args* Es) f))
+
+(define (join z)
+  (bind z values))
 
 (define (app F . Es)
   (app* F Es))
@@ -112,6 +116,7 @@
   (require rackunit)
 
   (define id values)
+  (define unit return)
 
   ;; doc examples
 
@@ -136,6 +141,11 @@
 
   (test-case "fmap"
     (check = (sync (fmap + (pure 1) (pure 2) (pure 3))) 6))
+
+  (test-case "join"
+    (check-pred evt? (join (pure always-evt)))
+    (check eq? (sync (join (pure always-evt))) always-evt)
+    (check = (sync (join (pure (pure 123)))) 123))
 
   (test-case "app"
     (check = (sync (app (pure +) (pure 1) (pure 2) (pure 3))) 6))
@@ -206,6 +216,43 @@
                        (λ (x) (fmap (curry * 3) x)))
               (pure v))))))
 
+  (test-case "fmap f . unit = unit . f"
+    (for ([f (list add1 sub1 (curry * 3))]
+          [v 10])
+      (check
+       =
+       (sync ((compose (curry fmap f) unit) v))
+       (sync ((compose unit f) v)))))
+
+  (test-case "fmap f . join = join . fmap (fmap f)"
+    (for ([f (list add1 sub1 (curry * 3))]
+          [v 10])
+      (check
+       =
+       (sync ((compose (curry fmap f) join) (pure (pure v))))
+       (sync ((compose join (curry fmap (curry fmap f))) (pure (pure v)))))))
+
+  (test-case "join . unit = id"
+    (for ([v 10])
+      (check
+       =
+       (sync ((compose join unit) (pure v)))
+       (id v))))
+
+  (test-case "join . fmap unit = id"
+    (for ([v 10])
+      (check
+       =
+       (sync ((compose join (curry fmap unit)) (pure v)))
+       (id v))))
+
+  (test-case "join . fmap join = join . join"
+    (for ([v 10])
+      (check
+       =
+       (sync ((compose join (curry fmap join)) (pure (pure (pure v)))))
+       (sync ((compose join join) (pure (pure (pure v))))))))
+
   (test-case "pure id <*> v = v"
     (for ([v 10])
       (check
@@ -254,6 +301,14 @@
        = m
        (sync (bind (pure m) return))
        (sync (pure m)))))
+
+  (test-case "m >>= k = join (fmap k m)"
+    (for ([k (list add1 sub1 (curry * 3))]
+          [m 10])
+      (check
+       =
+       (sync (bind (pure m) (compose return k)))
+       (sync (join (fmap (compose return k) (pure m)))))))
 
   (test-case "m >>= (\\x -> k x >>= h)  =  (m >>= k) >>= h"
     (define h (λ (x) (pure (+ 2 x))))

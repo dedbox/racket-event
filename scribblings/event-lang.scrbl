@@ -299,6 +299,16 @@ The results are memoized so multiple syncs don't replay side effects.
   ]
 }
 
+@defproc[(join [E evt?]) evt?]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @var[E] and then
+  synchronizes the @rtech{synchronization result} of @var[E].
+
+  @example[
+    (sync (join (pure (pure 123))))
+  ]
+}
+
 @deftogether[(
   @defproc[(app [F evt?] [E evt?] ...) evt?]
   @defproc[(app* [F evt?] [Es (listof evt?)]) evt?]
