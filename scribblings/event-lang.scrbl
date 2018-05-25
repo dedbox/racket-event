@@ -221,18 +221,20 @@ is much faster.
 @subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
 
 @example[
-  (define (promise thunk)
+  (define (promised thunk)
     (define result #f)
-    (bind (thread (λ ()
-                    (define vs (call-with-values thunk list))
-                    (set! result (pure (apply values vs)))))
-          (λ _ result)))
+    (bind
+     (thread
+      (λ ()
+        (define vs (call-with-values thunk list))
+        (set! result (pure (apply values vs)))))
+     (λ _ result)))
 ]
 
 The results are memoized so multiple syncs don't replay side effects.
 
 @example[
-  (define p (promise (λ () (writeln 123) 4)))
+  (define p (promised (λ () (writeln 123) 4)))
   (sync p)
   (sync p)
 ]
