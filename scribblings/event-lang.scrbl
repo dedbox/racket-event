@@ -264,6 +264,111 @@ The results are memoized so multiple syncs don't replay side effects.
 
 @; =============================================================================
 
+@section{Programming in event-lang}
+
+This section explains in plain language the basics of event programming with
+event-lang. You will need a working knowledge of concurrent programming in
+Racket, including @rtech{threads}, @rtech{semaphores}, and @rtech{channels}.
+
+@rtech{Synchronizable events} are a versatile medium for event programming.
+The @racket[pure] abstraction is essentially the @racket[lambda] of
+cooperative concurrency. It closes over the free variables in its body and it
+can return multiple values at once. On the other hand, they allow no
+arguments. Fortunately, events compose just as neatly with functions as they
+do with each other.
+
+@; use cases:
+@; - extend synchronization behaviors
+@; - communications
+@;   - build thread communication protocols
+@;   - gates
+@; - control abstraction
+@;   - goes well with functions
+@;     - multi-value composition
+@; - cooperative concurrency
+@;   - like a composable thread fragment
+@;   - preemption is the cost of composability
+
+@;  Extended synchronization behaviors, thread messaging protocols,
+@; functional control abstractions, and cooperative concurrency are covered.
+
+@; -----------------------------------------------------------------------------
+
+@subsection{Enxtending synchronization behaviors}
+
+The basic use case for events is @rtech{thread} synchronization. For example,
+
+@example[
+  (define sema (make-semaphore))
+  (sync
+   (async-void
+    (thread (λ () (sync sema) (writeln 'T1)))
+    (thread (λ () (writeln 'T2) (semaphore-post sema)))))
+]
+
+is guaranteed to write @racketoutput{T2} before @racketoutput{T1}. The
+@rtech{semaphore} represents an agreement between @racketid[t1] and
+@racketid[t2] that @racketid[t1] will wait for @racketid[t2] to go first.
+
+Sometimes, a promise to wait is not enough. Suppose we want @racketid[sema] to
+behave normally the first few times and then always synchronize immediately.
+We could use @racket[replace-evt] or @racket[guard-evt] to delay construction
+of the event until it is needed.
+
+@example[
+  (define (guarded-semaphore N)
+    (define sema (make-semaphore))
+    (define (next)
+      (if (<= N 0) always-evt (begin (set! N (- N 1)) sema)))
+    (values sema (guard-evt next)))
+]
+
+Although @racketid[t1] posts to @racketid[sema] only once, @racket[t2]
+synchronizes on @racketid[semb] three times.
+
+@example[
+  (define-values (sema semb) (guarded-semaphore 1))
+  (sync
+   (async-void
+    (thread (λ () (writeln `(T1 X)) (semaphore-post sema)))
+    (thread (λ ()
+              (sync semb) (writeln `(T2 A))
+              (sync semb) (writeln `(T2 B))
+              (sync semb) (writeln `(T2 C))))))
+]
+
+If we replace @racket[guard-evt] with event-lang primitives @racket[join] and
+@racket[pure], it will behave the same.
+
+@example[
+  (define (joined-semaphore N)
+    (define sema (make-semaphore))
+    (define (next)
+      (if (<= N 0) always-evt (begin (set! N (- N 1)) sema)))
+    (values sema (join (pure (next)))))
+]
+
+This works because @racket[pure] delays the call to @racketid[next] and
+@racket[join] forces the event returned by @racketid[next].
+
+@example[
+  (define-values (sema semb) (joined-semaphore 1))
+  (sync
+   (async-void
+    (thread (λ () (writeln `(T1 X)) (semaphore-post sema)))
+    (thread (λ ()
+              (sync semb) (writeln `(T2 A))
+              (sync semb) (writeln `(T2 B))
+              (sync semb) (writeln `(T2 C))))))
+]
+
+@; multiple return values
+@; connecting events to functions: wrap-evt replace-evt guard-evt
+@; connecting functions to events: fmap, bind
+@; connecting events to events: app, seq, test
+
+@; =============================================================================
+
 @section{Reference}
 
 @defmodule[event]
