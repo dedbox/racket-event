@@ -106,7 +106,12 @@ The project has three outstanding objectives:
 
 @subsection{Some examples}
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection[#:style '(toc-hidden unnumbered)]{Wait until a bunch of stuff is done}
+
+Use @racket[async-void] and @racket[async-void*] to wait until all events are
+ready and ignore the results.
 
 @example[
   (define ch (make-channel))
@@ -118,7 +123,11 @@ The project has three outstanding objectives:
               (thread (λ () (write (channel-get ch))))))))
 ]
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection[#:style '(toc-hidden unnumbered)]{Do the same thing many times}
+
+Us the starred variants of functions to work with lists of events.
 
 @example[
   (define (channel-dup-evt cs v)
@@ -140,14 +149,19 @@ it's ready for synchronization.
   (sync (seq (channel-dup-evt cs 'X) (async-void* ts)))
 ]
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection[#:style '(toc-hidden unnumbered)]{Generate the natural numbers}
+
+Close over a counter and increment once per sync.
 
 @example[
   (define nat
-    (let ([n 0]) (pure (begin0 n (set! n (add1 n))))))
+    (let ([n 0])
+      (pure (begin0 n (set! n (add1 n))))))
 ]
 
-@racketid[nat] acts like a generator.
+Now we can use @racketid[nat] to generate the natural numbers.
 
 @example[
   (sync nat)
@@ -162,7 +176,11 @@ repetition.
   (sync (event-list* (make-list 4 nat)))
 ]
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection[#:style '(toc-hidden unnumbered)]{Fibonacci numbers}
+
+The ``hello world'' of recursion.
 
 @example[
   (define (naive-fib n)
@@ -218,7 +236,12 @@ is much faster.
   (hash-ref fibs 15)
 ]
 
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 @subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
+
+Capture the return values of a @racketid[thunk] and produce them as
+@rtech{synchronization results}.
 
 @example[
   (define (promised thunk)
