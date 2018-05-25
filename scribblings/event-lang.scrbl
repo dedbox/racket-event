@@ -468,6 +468,67 @@ The results are memoized so multiple syncs don't replay side effects.
   ]
 }
 
+@defproc[(memoize [E evt?]) evt?]{
+
+  Returns a @rtech{synchronizable event} that syncs @var[E] and remembers the
+  result. The @rtech{synchronization result} of the whole event is the
+  @rtech{synchronization result} of @var[E].
+
+  @example[
+    (define e1 (pure (begin (writeln '!!) (+ 1 2))))
+    (sync e1)
+    (sync e1)
+    (define e2 (memoize e1))
+    (sync e2)
+    (sync e2)
+    (sync e2)
+  ]
+}
+
+@defproc[(promise [E evt?]) evt?]{
+
+  Syncs @var[E] in a background @rtech{thread}. Returns a
+  @rtech{synchronizable event} that becomes @rtech{ready for synchronization}
+  when the background @rtech{thread} finishes. The @rtech{synchronization
+  result} of the whole event is the @rtech{synchronization result} of @var[E].
+
+  @example[
+    (define ch (make-channel))
+    (define ps (for/list ([_ 10]) (promise ch)))
+    (for ([i 10]) (channel-put ch i))
+    (map sync ps)
+  ]
+
+  The @rtech{synchronization result} of a promise is memoized. Attempting to
+  synchronize a finished promise immediately produces the original result
+  without any side effects.
+
+}
+
+@deftogether[(
+  @defproc[(promises [E evt?] ...) evt?]
+  @defproc[(promises* [Es (listof evt?)]) evt?]
+)]{
+
+  Syncs each of the @var[E]s in a separate background @rtech{thread}. Returns
+  a @rtech{synchronizable event} that becomes @rtech{ready for
+  synchronization} when all of the background @rtech{threads} finish. The
+  @rtech{synchronization result} of the whole event is a list of the
+  @rtech{synchronization results} of the @var[E]s.
+
+  @example[
+    (define ch (make-channel))
+    (define ps (promises* (make-list 10 ch)))
+    (for ([i 10]) (channel-put ch i))
+    (sync ps)
+  ]
+
+  The @rtech{synchronization results} of the promises are memoized. Attempting
+  to synchronize finished promises immediately produce the original results
+  without any side effects.
+
+}
+
 @; -----------------------------------------------------------------------------
 
 @subsection{Concurrent Combinators}
