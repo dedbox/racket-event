@@ -1,7 +1,6 @@
 #lang racket/base
 
 (require
- event/renames
  event/sequential
  racket/contract/base
  racket/list
@@ -26,15 +25,16 @@
 
 (define (async-set* Es)
   (define (one-of Es)
-    (apply choice (map (λ (E) (handle E (λ (v) (cons E v)))) Es)))
+    (apply choice-evt (map (λ (E) (handle-evt E (λ (v) (cons E v)))) Es)))
   (let loop ([Es Es]
              [vs null])
     (if (null? Es)
         (pure (apply values (reverse vs)))
-        (replace (one-of Es)
-                 (λ (E+v)
-                   (loop (remq (car E+v) Es)
-                         (cons (cdr E+v) vs)))))))
+        (replace-evt
+         (one-of Es)
+         (λ (E+v)
+           (loop (remq (car E+v) Es)
+                 (cons (cdr E+v) vs)))))))
 
 (define (async-args . Es)
   (async-args* Es))
@@ -46,32 +46,32 @@
              [k (vector-length vs)])
     (vector-set!
      Hs k
-     (handle E (λ (v)
-                 (vector-set! vs k v)
-                 (vector-set! Hs k #f)))))
+     (handle-evt E (λ (v)
+                     (vector-set! vs k v)
+                     (vector-set! Hs k #f)))))
   (let loop ()
     (define evts (filter values (vector->list Hs)))
     (if (null? evts)
         (pure (apply values (vector->list vs)))
-        (replace (apply choice evts) (λ _ (loop))))))
+        (replace-evt (apply choice-evt evts) (λ _ (loop))))))
 
 (define (async-fmap f . Es)
   (async-fmap* f Es))
 
 (define (async-fmap* f Es)
-  (handle (async-args* Es) f))
+  (handle-evt (async-args* Es) f))
 
 (define (async-app F . Es)
   (async-app* F Es))
 
 (define (async-app* F Es)
-  (replace F (λ (f) (async-fmap* f Es))))
+  (replace-evt F (λ (f) (async-fmap* f Es))))
 
 (define (async-bind . Es+f)
   (async-bind* (drop-right Es+f 1) (last Es+f)))
 
 (define (async-bind* Es f)
-  (replace (async-args* Es) f))
+  (replace-evt (async-args* Es) f))
 
 ;;; Unit Tests
 
@@ -94,7 +94,7 @@
       (define xs (build-list k values))
       (define Xs (map return xs))
       (let loop ()
-        (define ys (sync (handle (apply async-set Xs) list)))
+        (define ys (sync (handle-evt (apply async-set Xs) list)))
         (check = (length ys) k)
         (for ([j k])
           (check-pred (curry member j) ys))
@@ -131,7 +131,7 @@
       (define Vs (build-list k return))
       (check
        equal? (build-list k values)
-       (sync (handle (async-fmap* id Vs) list))
+       (sync (handle-evt (async-fmap* id Vs) list))
        (map sync Vs))))
 
   (test-case
@@ -144,15 +144,16 @@
       (check
        = (* 2 (apply + vs))
        (sync (async-fmap* (compose f g) Vs))
-       (replace (async-fmap* g Vs)
-                (λ (x) (async-fmap f (pure x)))))))
+       (replace-evt
+        (async-fmap* g Vs)
+        (λ (x) (async-fmap f (pure x)))))))
 
   (test-case
       "pure id <*> v = v"
     (for* ([k 10])
       (define vs (build-list k values))
       (define Vs (map return vs))
-      (check equal? vs (sync (handle (async-app* (pure id) Vs) list)))))
+      (check equal? vs (sync (handle-evt (async-app* (pure id) Vs) list)))))
 
   (test-case
       "pure (.) <*> u <*> v <*> w = u <*> (v <*> w)"

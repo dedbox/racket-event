@@ -1,7 +1,6 @@
 #lang racket/base
 
 (require
- event/renames
  racket/contract/base
  racket/function
  racket/list
@@ -38,7 +37,7 @@
 ;; event/sequential
 
 (define-syntax-rule (pure datum)
-  (handle always (λ _ datum)))
+  (handle-evt always-evt (λ _ datum)))
 
 (define (return v)
   (pure v))
@@ -49,17 +48,18 @@
 (define (args* Es)
   (if (null? Es)
       (pure (values))
-      (replace (car Es)
-               (λ v
-                 (fmap*
-                  (λ vs (apply values (append v vs)))
-                  (cdr Es))))))
+      (replace-evt
+       (car Es)
+       (λ v
+         (fmap*
+          (λ vs (apply values (append v vs)))
+          (cdr Es))))))
 
 (define (fmap f . Es)
   (fmap* f Es))
 
 (define (fmap* f Es)
-  (handle (args* Es) f))
+  (handle-evt (args* Es) f))
 
 (define (join z)
   (bind z values))
@@ -68,22 +68,22 @@
   (app* F Es))
 
 (define (app* F Es)
-  (replace F (λ (f) (fmap* f Es))))
+  (replace-evt F (λ (f) (fmap* f Es))))
 
 (define (bind . Es+f)
   (bind* (drop-right Es+f 1) (last Es+f)))
 
 (define (bind* Es f)
-  (replace (args* Es) f))
+  (replace-evt (args* Es) f))
 
 (define (seq E . Es)
-  (if (null? Es) E (replace E (λ _ (apply seq Es)))))
+  (if (null? Es) E (replace-evt E (λ _ (apply seq Es)))))
 
 (define (seq0 E . Es)
-  (replace E (λ (v) (handle (args* Es) (λ _ v)))))
+  (replace-evt E (λ (v) (handle-evt (args* Es) (λ _ v)))))
 
 (define (test E1 E2 E3)
-  (replace E1 (λ (v) (if v E2 E3))))
+  (replace-evt E1 (λ (v) (if v E2 E3))))
 
 (define (series E . fs)
   (series* E fs))
@@ -91,13 +91,13 @@
 (define (series* E fs)
   (if (null? fs)
       E
-      (replace E (λ vs (series* (apply (car fs) vs) (cdr fs))))))
+      (replace-evt E (λ vs (series* (apply (car fs) vs) (cdr fs))))))
 
 (define (reduce f check . vs)
   (reduce* f check vs))
 
 (define (reduce* f check vs)
-  (replace
+  (replace-evt
    (apply f vs)
    (λ vs*
      (if (apply check (append vs vs*))
@@ -136,7 +136,7 @@
 
   (test-case "args"
     (check equal?
-           (sync (handle (args (pure 1) (pure 2) (pure 3)) list))
+           (sync (handle-evt (args (pure 1) (pure 2) (pure 3)) list))
            '(1 2 3)))
 
   (test-case "fmap"
