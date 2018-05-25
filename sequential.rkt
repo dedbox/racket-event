@@ -32,7 +32,11 @@
                (unconstrained-domain-> boolean?)
                (listof any/c) evt?)]
   [loop (-> (unconstrained-domain-> evt?) any/c ... evt?)]
-  [loop* (-> (unconstrained-domain-> evt?) (listof any/c) evt?)]))
+  [loop* (-> (unconstrained-domain-> evt?) (listof any/c) evt?)]
+  [memoize (-> evt? evt?)]
+  [promise (-> evt? evt?)]
+  [promises (-> evt? ... evt?)]
+  [promises* (-> (listof evt?) evt?)]))
 
 ;; event/sequential
 
@@ -109,6 +113,29 @@
 
 (define (loop* f vs)
   (reduce* f (λ _ #f) vs))
+
+(define-syntax-rule (become expr)
+  (join (pure expr)))
+
+(define (memoize E)
+  (define result #f)
+  (define (record . vs)
+    (set! result (pure (apply values vs))))
+  (become (or result (bind E (compose (λ _ result) record)))))
+
+(define (promise E)
+  (define result #f)
+  (define (record . vs)
+    (set! result (pure (apply values vs))))
+  (bind
+   (thread (λ () (call-with-values (λ () (sync E)) record)))
+   (λ _ result)))
+
+(define (promises . Es)
+  (promises* Es))
+
+(define (promises* Es)
+  (fmap* list (map promise Es)))
 
 ;;; Unit Tests
 
@@ -361,4 +388,41 @@
            (if (< x 10)
                (pure (add1 x))
                (raise x)))
-         0))))))
+         0)))))
+
+  (test-case "memoize"
+    (define L null)
+    (define (push v)
+      (set! L (cons v L)))
+    (define e1 (pure (begin (push 'A) 1)))
+    (check = (sync e1) 1) (check equal? L '(A))
+    (check = (sync e1) 1) (check equal? L '(A A))
+    (define e2 (memoize e1))
+    (check = (sync e2) 1) (check equal? L '(A A A))
+    (check = (sync e2) 1) (check equal? L '(A A A))
+    (check = (sync e2) 1) (check equal? L '(A A A)))
+
+  (test-case "promise"
+    (define L null)
+    (define (push v)
+      (set! L (cons v L)))
+    (define ch (make-channel))
+    (define ps (for/list ([_ 10]) (promise (seq (pure (push 'A)) ch))))
+    (for ([i 10]) (channel-put ch i))
+    (for ([p ps])
+      (define v (sync p))
+      (check >= v 0)
+      (check <= v 9)
+      (check = (sync p) v))
+    (check equal? L '(A A A A A A A A A A)))
+
+  (test-case "promises"
+    (define ch (make-channel))
+    (define ps (promises* (make-list 10 ch)))
+    (for ([i 10]) (channel-put ch i))
+    (define vs (sync ps))
+    (check = (length vs) 10)
+    (for ([v vs])
+      (check >= v 0)
+      (check <= v 9))
+    (check equal? (sync ps) vs)))
