@@ -15,11 +15,11 @@
   [args* (-> (listof evt?) evt?)]
   [fmap (-> procedure? evt? ... evt?)]
   [fmap* (->  procedure? (listof evt?) evt?)]
-  [join (-> evt? evt?)]
   [app (-> evt? evt? ... evt?)]
   [app* (-> evt? (listof evt?) evt?)]
   [bind (-> evt? ... (unconstrained-domain-> evt?) evt?)]
   [bind* (-> (listof evt?) (unconstrained-domain-> evt?) evt?)]
+  [join (-> evt? evt?)]
   [seq (-> evt? evt? ... evt?)]
   [seq0 (-> evt? evt? ... evt?)]
   [test (-> evt? evt? evt? evt?)]
@@ -65,9 +65,6 @@
 (define (fmap* f Es)
   (handle-evt (args* Es) f))
 
-(define (join z)
-  (bind z values))
-
 (define (app F . Es)
   (app* F Es))
 
@@ -79,6 +76,9 @@
 
 (define (bind* Es f)
   (replace-evt (args* Es) f))
+
+(define (join z)
+  (bind z values))
 
 (define (seq E . Es)
   (if (null? Es) E (replace-evt E (λ _ (apply seq Es)))))
@@ -169,11 +169,6 @@
   (test-case "fmap"
     (check = (sync (fmap + (pure 1) (pure 2) (pure 3))) 6))
 
-  (test-case "join"
-    (check-pred evt? (join (pure always-evt)))
-    (check eq? (sync (join (pure always-evt))) always-evt)
-    (check = (sync (join (pure (pure 123)))) 123))
-
   (test-case "app"
     (check = (sync (app (pure +) (pure 1) (pure 2) (pure 3))) 6))
 
@@ -186,6 +181,11 @@
              (pure 3)
              (compose return +)))
            6))
+
+  (test-case "join"
+    (check-pred evt? (join (pure always-evt)))
+    (check eq? (sync (join (pure always-evt))) always-evt)
+    (check = (sync (join (pure (pure 123)))) 123))
 
   (test-case "seq"
     (check = (sync (seq (pure 1) (pure 2) (pure 3))) 3))
