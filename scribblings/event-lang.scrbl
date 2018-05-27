@@ -264,39 +264,38 @@ The results are memoized so multiple syncs don't replay side effects.
 
 @; =============================================================================
 
-@section{Programming in event-lang}
+@section{Developer Guide}
 
 This section explains in plain language the basics of event programming with
-event-lang. You will need a working knowledge of concurrent programming in
+event-lang. It assumes a working knowledge of concurrent programming in
 Racket, including @rtech{threads}, @rtech{semaphores}, and @rtech{channels}.
 
 @rtech{Synchronizable events} are a versatile medium for event programming.
-The @racket[pure] abstraction is essentially the @racket[lambda] of
-cooperative concurrency. It closes over the free variables in its body and it
-can return multiple values at once. On the other hand, they allow no
-arguments. Fortunately, events compose just as neatly with functions as they
-do with each other.
+The @racket[pure] abstraction is like a @racket[lambda] for cooperative
+concurrency. It closes over the free variables in its body and can return
+multiple values. On the other hand, it takes no arguments. Fortunately, events
+compose just as neatly with functions as they do with each other.
 
 @; use cases:
 @; - extend synchronization behaviors
-@; - communications
-@;   - build thread communication protocols
-@;   - gates
 @; - control abstraction
 @;   - goes well with functions
 @;     - multi-value composition
 @; - cooperative concurrency
 @;   - like a composable thread fragment
 @;   - preemption is the cost of composability
+@; - communications
+@;   - build thread communication protocols
+@;   - gates
 
-@;  Extended synchronization behaviors, thread messaging protocols,
-@; functional control abstractions, and cooperative concurrency are covered.
+@; extending synchronization behavior, thread messaging protocols, functional
+@; control abstractions, cooperative concurrency
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Enxtending synchronization behaviors}
+@subsection{Extending synchronization behavior}
 
-The basic use case for events is @rtech{thread} synchronization. For example,
+The most basic use of events is for @rtech{thread} synchronization.
 
 @example[
   (define sema (make-semaphore))
@@ -306,60 +305,59 @@ The basic use case for events is @rtech{thread} synchronization. For example,
     (thread (λ () (writeln 'T2) (semaphore-post sema)))))
 ]
 
-is guaranteed to write @racketoutput{T2} before @racketoutput{T1}. The
-@rtech{semaphore} represents an agreement between @racketid[t1] and
-@racketid[t2] that @racketid[t1] will wait for @racketid[t2] to go first.
-
-Sometimes, a promise to wait is not enough. Suppose we want @racketid[sema] to
-behave normally the first few times and then always synchronize immediately.
-We could use @racket[replace-evt] or @racket[guard-evt] to delay construction
-of the event until it is needed.
+To make the semaphore switch to always synchronizing immediately after
+behaving normally a few time, use a @racket[guard-evt] to delay choosing an
+implementation until synchronization time.
 
 @example[
   (define (guarded-semaphore N)
     (define sema (make-semaphore))
-    (define (next)
-      (if (<= N 0) always-evt (begin (set! N (- N 1)) sema)))
-    (values sema (guard-evt next)))
+    (define (next) (set! N (- N 1)) sema)
+    (values sema (guard-evt (λ _ (if (<= N 0) always-evt (next))))))
 ]
 
-Although @racketid[t1] posts to @racketid[sema] only once, @racket[t2]
-synchronizes on @racketid[semb] three times.
+The @racketid[guarded-semaphore] constructor returns two values: an actual
+semaphore for posting to, and a bounded reference for synchronizing on. At
+first, @racketid[sema] and @racketid[semb] behave the same when synchronized
+on. Each time @racketid[sema] receives a post, a @rtech{thread} unblocks.
+After @racketid[sema] receives @racketid[N] posts, @racketid[semb] becomes
+always @rtech{ready for synchronization}.
 
 @example[
-  (define-values (sema semb) (guarded-semaphore 1))
+  (define-values (sema semb) (guarded-semaphore 2))
   (sync
    (async-void
-    (thread (λ () (writeln `(T1 X)) (semaphore-post sema)))
     (thread (λ ()
-              (sync semb) (writeln `(T2 A))
-              (sync semb) (writeln `(T2 B))
-              (sync semb) (writeln `(T2 C))))))
+              (writeln '(T1 X)) (semaphore-post sema)
+              (sleep 0.1)
+              (writeln '(T1 Y)) (semaphore-post sema)))
+    (thread (λ ()
+              (sync semb) (writeln '(T2 A))
+              (sync semb) (writeln '(T2 B))
+              (sync semb) (writeln '(T2 C))))))
 ]
 
-If we replace @racket[guard-evt] with event-lang primitives @racket[join] and
-@racket[pure], it will behave the same.
+We can get the same behavior with event-lang primitives @racket[join] and
+@racket[pure]. Composing @racket[join] with @racket[pure] splices one event
+onto another.
 
 @example[
   (define (joined-semaphore N)
     (define sema (make-semaphore))
-    (define (next)
-      (if (<= N 0) always-evt (begin (set! N (- N 1)) sema)))
-    (values sema (join (pure (next)))))
+    (define (next) (set! N (- N 1)) sema)
+    (values sema (join (pure (if (<= N 0) always-evt (next))))))
 ]
 
-This works because @racket[pure] delays the call to @racketid[next] and
-@racket[join] forces the event returned by @racketid[next].
+The @racket[pure] form delays the call to @racketid[next] until
+synchronization time and the @racket[join] function forces the event returned
+by @racketid[next]. The @racket[become] form will do the same for any
+event-producing expression.
 
 @example[
-  (define-values (sema semb) (joined-semaphore 1))
-  (sync
-   (async-void
-    (thread (λ () (writeln `(T1 X)) (semaphore-post sema)))
-    (thread (λ ()
-              (sync semb) (writeln `(T2 A))
-              (sync semb) (writeln `(T2 B))
-              (sync semb) (writeln `(T2 C))))))
+  (define (bounded-semaphore N)
+    (define sema (make-semaphore))
+    (define (next) (set! N (- N 1)) sema)
+    (values sema (become (if (<= N 0) always-evt (next)))))
 ]
 
 @; multiple return values
