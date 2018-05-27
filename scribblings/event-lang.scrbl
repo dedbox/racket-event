@@ -388,6 +388,17 @@ event-producing expression.
   ]
 }
 
+@defform[(become expr)]{
+
+  Lifts an event-producing @var[expr] into a @rtech{synchronizable event} that
+  immediately replaces itself with the event produced by evaluating
+  @var[expr].
+
+  @example[
+    (sync (become (pure 123)))
+  ]
+}
+
 @defproc[(return [v any/c]) evt? #:value (pure v)]{
 
   Evaluates @var[v] and then lifts the result into an event. Returns a

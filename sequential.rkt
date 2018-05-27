@@ -8,7 +8,7 @@
              syntax/parse))
 
 (provide
- pure
+ pure become
  (contract-out
   [return (-> any/c evt?)]
   [args (-> evt? ... evt?)]
@@ -42,6 +42,9 @@
 
 (define-syntax-rule (pure datum)
   (handle-evt always-evt (λ _ datum)))
+
+(define-syntax-rule (become expr)
+  (join (pure expr)))
 
 (define (return v)
   (pure v))
@@ -114,9 +117,6 @@
 (define (loop* f vs)
   (reduce* f (λ _ #f) vs))
 
-(define-syntax-rule (become expr)
-  (join (pure expr)))
-
 (define (memoize E)
   (define result #f)
   (define (record . vs)
@@ -186,6 +186,11 @@
     (check-pred evt? (join (pure always-evt)))
     (check eq? (sync (join (pure always-evt))) always-evt)
     (check = (sync (join (pure (pure 123)))) 123))
+
+  (test-case "become"
+    (check-pred evt? (become always-evt))
+    (check eq? (sync (become always-evt)) always-evt)
+    (check = (sync (become (pure 123))) 123))
 
   (test-case "seq"
     (check = (sync (seq (pure 1) (pure 2) (pure 3))) 3))
