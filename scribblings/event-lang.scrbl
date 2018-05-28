@@ -15,6 +15,9 @@
 @(define (rtech . args)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") args))
 
+@(define (gtech . args)
+   (apply tech #:doc '(lib "scribblings/guide/guide.scrbl") args))
+
 @(define event-evaluator
    (parameterize
        ([sandbox-output 'string]
