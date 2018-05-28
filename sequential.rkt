@@ -87,7 +87,7 @@
   (if (null? Es) E (replace-evt E (λ _ (apply seq Es)))))
 
 (define (seq0 E . Es)
-  (replace-evt E (λ (v) (handle-evt (args* Es) (λ _ v)))))
+  (replace-evt E (λ vs (handle-evt (args* Es) (λ _ (apply values vs))))))
 
 (define (test E1 E2 E3)
   (replace-evt E1 (λ (v) (if v E2 E3))))
