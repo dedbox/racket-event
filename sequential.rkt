@@ -12,13 +12,13 @@
  (contract-out
   [return (-> any/c evt?)]
   [args (-> evt? ... evt?)]
-  [args* (-> (listof evt?) evt?)]
+  [args* (-> evt? ... (listof evt?) evt?)]
   [fmap (-> procedure? evt? ... evt?)]
-  [fmap* (->  procedure? (listof evt?) evt?)]
+  [fmap* (->  procedure? evt? ... (listof evt?) evt?)]
   [app (-> evt? evt? ... evt?)]
-  [app* (-> evt? (listof evt?) evt?)]
+  [app* (-> evt? evt? ... (listof evt?) evt?)]
   [bind (-> evt? ... (unconstrained-domain-> evt?) evt?)]
-  [bind* (-> (listof evt?) (unconstrained-domain-> evt?) evt?)]
+  [bind* (-> evt? ... (listof evt?) (unconstrained-domain-> evt?) evt?)]
   [join (-> evt? evt?)]
   [seq (-> evt? evt? ... evt?)]
   [seq0 (-> evt? evt? ... evt?)]
@@ -49,6 +49,10 @@
 (define (return v)
   (pure v))
 
+
+(define (rest-args Es+Es*)
+  (append (drop-right Es+Es* 1) (last Es+Es*)))
+
 (define (args . Es)
   (args* Es))
 
@@ -62,23 +66,26 @@
           (λ vs (apply values (append v vs)))
           (cdr Es))))))
 
-(define (fmap f . Es)
-  (fmap* f Es))
 
-(define (fmap* f Es)
+(define (fmap f . Es)
   (handle-evt (args* Es) f))
 
-(define (app F . Es)
-  (app* F Es))
+(define (fmap* f . Es+Es*)
+  (apply fmap f (rest-args Es+Es*)))
 
-(define (app* F Es)
+(define (app F . Es)
   (replace-evt F (λ (f) (fmap* f Es))))
 
-(define (bind . Es+f)
-  (bind* (drop-right Es+f 1) (last Es+f)))
+(define (app* F . Es+Es*)
+  (apply app F (rest-args Es+Es*)))
 
-(define (bind* Es f)
-  (replace-evt (args* Es) f))
+(define (bind . Es+f)
+  (replace-evt (args* (drop-right Es+f 1)) (last Es+f)))
+
+(define (bind* . Es+Es*+f)
+  (define Es+Es* (drop-right Es+Es*+f 1))
+  (define f (last Es+Es*+f))
+  (replace-evt (args* (rest-args Es+Es*)) f))
 
 (define (join z)
   (bind z values))
