@@ -62,6 +62,8 @@
 (define (args . Es)
   (handle-evt (arg-list Es) (curry apply values)))
 
+(define (args* . Es+Es*)
+  (apply args (rest-args Es+Es*)))
 
 (define (fmap f . Es)
   (handle-evt (args* Es) f))
