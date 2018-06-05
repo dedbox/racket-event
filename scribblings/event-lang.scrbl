@@ -123,31 +123,57 @@ results.
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-@subsubsection[#:style '(toc-hidden unnumbered)]{Do the same thing many times}
+@subsubsection[#:style '(toc-hidden unnumbered)]{Memoization}
 
-Us the starred variants of functions to work with lists of events.
-
-@example[
-  (define (channel-dup-evt cs v)
-    (async-void* (map (curryr channel-put-evt v) cs)))
-]
-
-With some background getters,
+Record the @rtech{synchronization results} of an event and thereafter
+reproduce them immediately.
 
 @example[
-  (define cs (build-list 5 (λ _ (make-channel))))
-  (define ts
-    (for/list ([c cs] [i 5])
-      (thread (λ () (writeln (cons i (channel-get c)))))))
+  (eval:alts
+   (define (memoize evt)
+     (define result #f)
+     (define (save vs)
+       (set! result (pure (apply values vs)))
+     (become (or result (bind evt (λ vs (save vs) result))))))
+   (void))
 ]
 
-it's ready for synchronization.
+Multiple syncs on @racketid[e2] will not replay side effects.
 
 @example[
-  (sync (seq (channel-dup-evt cs 'X) (async-void* ts)))
+  (define e1 (pure (write 'X)))
+  (define e2 (memoize e1))
+  (begin (sync e1) (sync e1) (sync e1))
+  (begin (sync e2) (sync e2) (sync e2))
 ]
+
+This is how the @racket[memoize] combinator works.
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+@subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
+
+Capture the return values of a @racketid[thunk] in a background @rtech{thread}
+and then produce them as @rtech{synchronization results}.
+
+@example[
+  (define (promised thunk)
+    (define ch (make-channel))
+    (define thunk*
+      (λ () (call-with-values thunk (curry channel-put ch))))
+    (memoize (seq0 ch (thread thunk*))))
+]
+
+The results are memoized explicitly.
+
+@example[
+  (define p (promised (λ () (writeln 123) 4)))
+  (sync p)
+  (sync p)
+]
+
+The @racket[promise] combinator is similar, but it takes an event instead of a
+thunk.
 
 @subsubsection[#:style '(toc-hidden unnumbered)]{Generate the natural numbers}
 
