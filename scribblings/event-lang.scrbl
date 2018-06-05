@@ -539,12 +539,18 @@ event-producing expression.
 @defproc[(test [E1 evt?] [E2 evt?] [E3 evt?]) evt?]{
 
   Returns a @rtech{synchronizable event} that becomes either @var[E2] or
-  @var[E3]. If the @rtech{synchronization result} of @var[E1] is not
+  @var[E3]. If no value in the @rtech{synchronization result} of @var[E1] is
   @racket[#f], it becomes @var[E2]. Otherwise, it becomes @var[E3].
 
   @example[
-    (sync (test (pure #t) (pure 1) (pure 2)))
-    (sync (test (pure #f) (pure 1) (pure 2)))
+  (list
+   (sync (test (pure #t) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure #f) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure (values #t #t)) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure (values #t #f)) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure (values #f #t)) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure (values #f #f)) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure (values)) (pure 'Tru) (pure 'Fls))))
   ]
 }
 
