@@ -436,6 +436,17 @@ event-producing expression.
   ]
 }
 
+@defproc[(arg-list [Es (listof evt?)]) evt?]{
+
+  Returns a @rtech{synchronizable event} that synchronizes @var[Es] in order.
+  The @rtech{synchronization result} is a list of the @rtech{synchronization
+  results} of the @var[Es].
+
+  @example[
+    (sync (arg-list (list (pure 1) (pure 2) (pure 3))))
+  ]
+}
+
 @deftogether[(
   @defproc[(args [E evt?] ...) evt?]
   @defproc[(args* [Es (listof evt?)]) evt?]
