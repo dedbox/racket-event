@@ -103,7 +103,7 @@
   (replace-evt E (λ vs (handle-evt (args* Es) (λ _ (apply values vs))))))
 
 (define (test E1 E2 E3)
-  (replace-evt E1 (λ vs (if (equal? vs '(#f)) E3 E2))))
+  (replace-evt E1 (λ vs (if (andmap values vs) E2 E3))))
 
 (define (series E . fs)
   (series* E fs))
