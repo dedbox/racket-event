@@ -113,17 +113,12 @@ The project has three outstanding objectives:
 
 @subsubsection[#:style '(toc-hidden unnumbered)]{Wait until a bunch of stuff is done}
 
-Use @racket[async-void] and @racket[async-void*] to wait until all events are
-ready and ignore the results.
+Use @racket[async-void] to wait until all events are ready and then ignore the
+results.
 
 @example[
-  (define ch (make-channel))
-  (sync
-   (async-void*
-    (append (for/list ([i 10])
-              (thread (λ () (channel-put ch i))))
-            (for/list ([_ 10])
-              (thread (λ () (write (channel-get ch))))))))
+  (sync (async-void (pure 1) (pure 2) (pure 3)))
+  (sync (async-void (pure 4) (pure 5) (pure 6)))
 ]
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
