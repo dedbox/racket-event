@@ -449,11 +449,11 @@ event-producing expression.
 
 @deftogether[(
   @defproc[(args [E evt?] ...) evt?]
-  @defproc[(args* [Es (listof evt?)]) evt?]
+  @defproc[(args* [E evt?] ... [Es (listof evt?)]) evt?]
 )]{
 
-  Returns a @rtech{synchronizable event} that evaluates @var[Es] in order and
-  then applies @racket[values] to the @rtech{synchronization results}.
+  Returns a @rtech{synchronizable event} that synchronizes @var[E]s in order
+  and then applies @racket[values] to the @rtech{synchronization results}.
 
   @example[
     (sync (args (pure 1) (pure 2) (pure 3)))
@@ -462,10 +462,10 @@ event-producing expression.
 
 @deftogether[(
   @defproc[(fmap [f (-> any/c ... any)] [E evt?] ...) evt?]
-  @defproc[(fmap* [f (-> any/c ... any)] [Es (listof evt?)]) evt?]
+  @defproc[(fmap* [f (-> any/c ... any)] [E evt?] ... [Es (listof evt?)]) evt?]
 )]{
 
-  Returns a @rtech{synchronizable event} that synchronizes @var[Es] in order
+  Returns a @rtech{synchronizable event} that synchronizes @var[E]s in order
   and then applies @var[f] to the @rtech{synchronization results}.
 
   @example[
@@ -485,11 +485,11 @@ event-producing expression.
 
 @deftogether[(
   @defproc[(app [F evt?] [E evt?] ...) evt?]
-  @defproc[(app* [F evt?] [Es (listof evt?)]) evt?]
+  @defproc[(app* [F evt?] [E evt?] ... [Es (listof evt?)]) evt?]
 )]{
 
   Returns a @rtech{synchronizable event} that synchronizes @var[F] and
-  @var[Es] in order and then applies the @rtech{synchronization result} of the
+  @var[E]s in order and then applies the @rtech{synchronization result} of the
   former to the @rtech{synchronization results} of the latter.
 
   @example[
@@ -499,10 +499,10 @@ event-producing expression.
 
 @deftogether[(
   @defproc[(bind [E evt?] ... [f (-> any/c ... evt?)]) evt?]
-  @defproc[(bind* [Es (listof evt?)] [f (-> any/c ... evt?)]) evt?]
+  @defproc[(bind* [E evt?] ... [Es (listof evt?)] [f (-> any/c ... evt?)]) evt?]
 )]{
 
-  Returns a @rtech{synchronizable event} that synchronizes @var[Es] in order
+  Returns a @rtech{synchronizable event} that synchronizes @var[E]s in order
   and then becomes the event returned from @var[f] applied to the
   @rtech{synchronization results}.
 
@@ -550,7 +550,10 @@ event-producing expression.
 
 @deftogether[(
   @defproc[(series [E evt?] [f (-> any/c evt)] ...) evt?]
-  @defproc[(series* [E evt?] [fs (listof (-> any/c evt?))]) evt?]
+  @defproc[
+    (series* [E evt?] [f (-> any/c evt)] ... [fs (listof (-> any/c evt?))])
+    evt?
+  ]
 )]{
 
   Returns a @rtech{synchronizable event} that applies @var[f]s in series,
