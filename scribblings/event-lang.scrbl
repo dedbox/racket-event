@@ -175,9 +175,424 @@ The results are memoized explicitly.
 The @racket[promise] combinator is similar, but it takes an event instead of a
 thunk.
 
-@subsubsection[#:style '(toc-hidden unnumbered)]{Generate the natural numbers}
+@; =============================================================================
 
-Close over a counter and increment once per sync.
+@section{The Combinators}
+
+@; use cases:
+@; - control abstraction
+@;   - goes well with functions
+@;     - multi-value composition
+@; - extend synchronization behaviors
+@; - communications
+@;   - gates
+@;   - protocols
+@; - cooperative concurrency
+@;   - coroutines
+
+@; extending synchronization behavior, thread messaging protocols, functional
+@; control abstractions, cooperative concurrency
+
+@; -----------------------------------------------------------------------------
+
+@subsection{The @racket[pure] form}
+
+The @racket[pure] form wraps @racket[always-evt] to create an event that
+evaluates an arbitrary expression at synchronization time. It is the
+@racket[lambda] of event programming. The @racket[pure] form can close over
+free variables in its body, and it can produce multiple values simultaneously.
+On the other hand, it takes no arguments. Fortunately, events and functions
+compose neatly to overcome this limitation.
+
+The implementation of @racket[pure] is dead simple.
+
+@example[
+  (eval:alts
+   (define-syntax-rule (pure datum)
+     (handle-evt always-evt (λ _ datum)))
+   (void))
+]
+
+The @racketid[datum] is injected into a @racket[lambda] abstraction and will
+be re-evaluated each time the event is successfully synchronized. To
+pre-evaluate @racketid[datum], use @racket[return] instead.
+
+@; -----------------------------------------------------------------------------
+
+@subsection{Connecting events to functions}
+
+Racket comes with some useful event constructors: @racket[handle-evt],
+@racket[replace-evt], and @racket[guard-evt].
+
+The @racket[handle-evt] constructor composes an event with a function by
+applying the function to the @rtech{synchronization result} of the event.
+
+@example[
+  (sync (handle-evt (pure (values 1 2 3)) +))
+  (sync (handle-evt (pure (values 1 2 3)) (λ xs (map sub1 xs))))
+]
+
+The @racket[replace-evt] constructor composes an event with any function that
+produces another event. In the simplest case, this splices one event onto the
+end of another.
+
+@example[
+  (define (splice-evts e1 e2)
+    (replace-evt e1 (λ _ e2)))
+  (sync
+   (splice-evts
+    (pure (writeln 'E1))
+    (pure (writeln 'E2))))
+]
+
+The @racket[guard-evt] constructor invokes a thunk to produce an event at
+synchronization time.
+
+@example[
+  (define n 0)
+  (define one-two-many
+    (guard-evt
+     (λ () (set! n (+ n 1)) (return (if (<= n 2) n 'many)))))
+  (sync (event-list* (make-list 4 one-two-many)))
+]
+
+@; -----------------------------------------------------------------------------
+
+@subsection{Argument lists}
+
+The @racket[arg-list] combinator takes a list of events and produces a list of
+their @rtech{synchronization results}.
+
+@example[
+  (eval:alts
+   (define (arg-list evts)
+     (foldr
+      (λ (x ys)
+        (replace-evt x (λ v (handle-evt ys (λ (vs) (append v vs))))))
+      (pure null) evts))
+   (void))
+]
+
+@example[
+  (sync (arg-list (list (pure 1) (pure 2) (pure (values 3 4)))))
+]
+
+It's just about as easy to do with direct recursion,
+
+@example[
+  (define (rec-arg-list evts [vs null])
+    (if (null? evts)
+        (return (reverse vs))
+        (replace-evt (car evts)
+                     (λ v (rec-arg-list (cdr evts) (append v vs))))))
+  (sync
+   (rec-arg-list (list (pure 1) (pure 2) (pure (values 3 4)))))
+]
+
+or with a loop.
+
+@example[
+  (define (loop-arg-list evts)
+    (let loop ([evts evts] [acc null])
+      (if (null? evts)
+          (return (apply append (reverse acc)))
+          (replace-evt (car evts)
+                       (λ vs (loop (cdr evts) (cons vs acc)))))))
+  (sync
+   (loop-arg-list (list (pure 1) (pure 2) (pure (values 3 4)))))
+]
+
+The @racket[args] combinator wraps @racket[arg-list] with a function that
+applies @racket[values] to the result.
+
+@example[
+  (eval:alts
+   (define (args . evts)
+     (handle-evt (arg-list evts) (curry apply values)))
+   (void))
+]
+
+@example[
+  (sync (args (pure 1) (pure 2) (pure 3)))
+]
+
+Constructors like @racket[args] with a @gtech{rest argument} are handy in the
+REPL. In library code, functions with a final list argument can be easier to
+use. Some constructs have a starred variant that splices its last argument
+onto the others in the same way @racket[list*] does.
+
+@example[
+  (eval:alts
+   (define (args* . evts)
+     (apply args (append (drop-right evts 1) (last evts))))
+   (void))
+]
+
+@example[
+  (sync (args* (pure 1) (list (pure 2) (pure 3))))
+]
+
+@; -----------------------------------------------------------------------------
+
+@subsection{Connecting functions to events}
+
+The @racket[fmap] combinator applies a function to the @rtech{synchronization
+results} of its arguments. The @racket[handle-evt] constructor is essentially
+@racket[fmap], but @racket[handle-evt] wants the entire argument list of the
+handler function to come from a single event. Providing an event for each
+argument is often easier.
+
+@example[
+  (eval:alts
+   (define (fmap f . x-evts)
+     (handle-evt (args* x-evts) f))
+   (void))
+]
+
+@example[
+  (define calc1
+    (match-lambda
+     [`(,a + ,b) (fmap + (calc1 a) (calc1 b))]
+     [`(,a * ,b) (fmap * (calc1 a) (calc1 b))]
+     [(? number? n) (pure n)]))
+  (sync (calc1 '((1 * 2) + (3 * 4))))
+]
+
+The @racket[bind] combinator also applies a function to the
+@rtech{synchronization results} of its argument list, but the function must be
+an event constructor and it must be the last argument. The
+@racket[replace-evt] constructor is essentially @racket[bind], but
+@racket[replace-evt] wants the entire argument list of the event constructor
+to come from a single event. Again, giving each argument as a separate event
+is often easier.
+
+@example[
+  (eval:alts
+   (define (bind . evts+f)
+     (replace-evt (args* (drop-right evts+f 1)) (last evts+f)))
+   (void))
+]
+
+@example[
+  (define (calc2 expr)
+    (match expr
+     [`(,a + ,b) (bind (calc2 a) (calc2 b) (compose return +))]
+     [`(,a * ,b) (bind (calc2 a) (calc2 b) (compose return *))]
+     [(? number? n) (pure n)]))
+  (sync (calc2 '((1 * 2) + (3 * 4))))
+]
+
+The @racket[series] constructor connects results to arguments in a series of
+arbitrary event combinators.
+
+@example[
+  (eval:alts
+   (define (series evt . fs)
+     (if (null? fs)
+         evt
+         (replace-evt
+          evt (λ vs (apply series (apply (car fs) vs) (cdr fs))))))
+   (void))
+]
+
+@example[
+  (sync
+   (series
+    (pure (values 1 2 3))
+    (λ xs (pure (values (apply + xs) 4)))
+    (compose return *)))
+]
+
+The @racket[reduce] constructor recursively applies a function to its results
+until the results satisfy a predicate.
+
+@example[
+  (eval:alts
+   (define (reduce f check . xs)
+     (replace-evt
+      (apply f xs)
+      (λ ys
+        (if (apply check (append xs ys))
+            (pure (apply values ys))
+            (apply reduce f check ys)))))
+   (void))
+]
+
+@example[
+  (define (two-to-the p)
+    (reduce
+     (λ (n k) (pure (values (* n 2) (+ k 1))))
+     (λ (__ ___ ____ k) (>= k p))
+     1 0))
+  (sync (two-to-the 10))
+  (sync (two-to-the 16))
+]
+
+@; -----------------------------------------------------------------------------
+
+@subsection{Connecting events to events}
+
+The @racket[become] combinator synchronizes an event and then synchronizes the
+@rtech{synchronization result}.
+
+@example[
+  (eval:alts
+   (define-syntax-rule (become expr)
+     (join (pure expr)))
+   (void))
+]
+
+It gets its name from the actor model.
+
+@example[
+  (define (worker [N 0])
+    (seq
+     (thread-receive-evt)
+     (become
+      (worker (match (thread-receive)
+                ['inc (add1 N)]
+                ['dec (sub1 N)]
+                [(? thread? t) (deliver t N) N])))))
+  (define (deliver t msg)
+    (fmap void (thread (λ () (thread-send t msg)))))
+  (define a-printer (thread (λ () (writeln (thread-receive)))))
+  (define a-worker (thread (λ () (sync (worker)))))
+  (for ([_ 5]) (sync (deliver a-worker 'inc)))
+  (for ([_ 2]) (sync (deliver a-worker 'dec)))
+  (sync (seq (deliver a-worker a-printer) (fmap void a-printer)))
+]
+
+The @racket[app] combinator applies the @rtech{synchronization result} of its
+first argument to the @rtech{synchronization results} of the remaining
+arguments.
+
+@example[
+  (eval:alts
+   (define (app f-evt . evts)
+     (replace-evt f-evt (λ (f) (fmap* f evts))))
+   (void))
+]
+
+@example[
+  (sync (app (pure +) (pure 1) (pure 2)))
+]
+
+The @racket[seq] combinator synchronizes one or more events and discards all
+but the last @rtech{synchronization result}.
+
+@example[
+  (eval:alts
+   (define (seq evt . evts)
+     (if (null? evts) evt (replace-evt evt (λ _ (apply seq evts)))))
+   (void))
+]
+
+@example[
+  (sync (seq (pure 1) (pure 2) (pure 3)))
+]
+
+The @racket[seq0] combinator is similar, discarding all but the first
+@rtech{synchronization result}.
+
+@example[
+  (eval:alts
+   (define (seq0 evt . evts)
+     (replace-evt
+      evt (λ vs (handle-evt (args* evts) (λ _ (apply values vs))))))
+   (void))
+]
+
+@example[
+  (sync (seq0 (pure 1) (pure 2) (pure 3)))
+]
+
+The @racket[test] combinator is a multi-valued @racket[if] expression for
+events.
+
+@example[
+  (eval:alts
+   (define (test test-evt then-evt else-evt)
+     (replace-evt
+      test-evt (λ vs (if (andmap values vs) then-evt else-evt))))
+   (void))
+]
+
+If none of the values produced by @racketid[test-evt] are @racket[#f], the
+test succeeds.
+
+@example[
+  (list
+   (sync (test (pure (values 1 2)) (pure 'Tru) (pure 'Fls)))
+   (sync (test (pure (values 3 #f)) (pure 'Tru) (pure 'Fls))))
+]
+
+@; =============================================================================
+
+@section{Extending Synchronization Time}
+
+Everybody know events are good for synchronizing @rtech{threads}.
+
+@example[
+  (define sema (make-semaphore))
+  (sync
+   (async-void
+    (thread (λ () (sync sema) (writeln 'T2)))
+    (thread (λ () (writeln 'T1) (semaphore-post sema)))))
+]
+
+If we wanted a @rtech{semaphore} to short-circuit after its first few posts,
+we could use @racket[guard-evt] to choose its behavior at each
+synchronization.
+
+@example[
+  (define (guarded-semaphore N)
+    (define sema (make-semaphore))
+    (define (next) (set! N (- N 1)) sema)
+    (values sema (guard-evt (λ () (if (<= N 0) always-evt (next))))))
+]
+
+This constructor returns two values: an actual semaphore for posting and a
+bounded reference for synchronizing. At first, @racketid[sema] and
+@racketid[semb] do the same thing. Each time @racketid[sema] receives a post,
+a @rtech{thread} waiting on @racketid[semb] wakes up. After @racketid[sema]
+receives @racketid[N] posts, all @rtech{threads} waiting on @racketid[semb]
+wake up and it becomes permanently @rtech{ready for synchronization}.
+
+@example[
+  (define-values (sema semb) (guarded-semaphore 2))
+  (sync
+   (async-void
+    (thread (λ ()
+              (writeln '(T1 X)) (semaphore-post sema)
+              (writeln '(T1 Y)) (semaphore-post sema)))
+    (thread (λ ()
+              (sync semb) (writeln '(T2 A))
+              (sync semb) (writeln '(T2 B))
+              (sync semb) (writeln '(T2 C))))))
+]
+
+We can get the same behavior with @racket[become].
+
+@example[
+  (define (joined-semaphore N)
+    (define sema (make-semaphore))
+    (define (next) (set! N (- N 1)) sema)
+    (values sema (become (if (<= N 0) always-evt (next)))))
+]
+
+@; =============================================================================
+
+@section{Cooperative Concurrency}
+
+@; -----------------------------------------------------------------------------
+
+@subsection{Sequence generators}
+
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+@subsubsection{The natural numbers}
+
+Close over a counter and increment it once per sync.
 
 @example[
   (define nat
@@ -185,7 +600,7 @@ Close over a counter and increment once per sync.
       (pure (begin0 n (set! n (add1 n))))))
 ]
 
-Now we can use @racketid[nat] to generate the natural numbers.
+Now we can use @racketid[nat] to get one number at a time.
 
 @example[
   (sync nat)
@@ -202,7 +617,7 @@ repetition.
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-@subsubsection[#:style '(toc-hidden unnumbered)]{Fibonacci numbers}
+@subsubsection{The Fibonacci sequence}
 
 The ``hello world'' of recursion.
 
@@ -225,7 +640,7 @@ Of course, the naive implementation is very slow.
     ""))
 ]
 
-This one:
+This one is much faster:
 
 @example[
   (define fib
@@ -233,13 +648,11 @@ This one:
       (pure (begin0 b (set!-values (a b) (values (+ a b) a))))))
 ]
 
-is much faster.
-
 @example[
   (time (last (sync (event-list* (make-list 30 fib)))))
 ]
 
-@racketid[nat] and @racketid[fib] can be combined to build an index.
+@racketid[fib] can be combined with @racketid[nat] to build an index.
 
 @examples[
   #:eval event-evaluator
@@ -260,134 +673,35 @@ is much faster.
   (hash-ref fibs 15)
 ]
 
-@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+@; -----------------------------------------------------------------------------
 
-@subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
-
-Capture the return values of a @racketid[thunk] and produce them as
-@rtech{synchronization results}.
-
-@example[
-  (define (promised thunk)
-    (define result #f)
-    (bind
-     (thread
-      (λ ()
-        (define vs (call-with-values thunk list))
-        (set! result (pure (apply values vs)))))
-     (λ _ result)))
-]
-
-The results are memoized so multiple syncs don't replay side effects.
-
-@example[
-  (define p (promised (λ () (writeln 123) 4)))
-  (sync p)
-  (sync p)
-]
-
-@; =============================================================================
-
-@section{Developer Guide}
-
-This section explains in plain language the basics of event programming with
-event-lang. It assumes a working knowledge of concurrent programming in
-Racket, including @rtech{threads}, @rtech{semaphores}, and @rtech{channels}.
-
-@rtech{Synchronizable events} are a versatile medium for event programming.
-The @racket[pure] abstraction is like a @racket[lambda] for cooperative
-concurrency. It closes over the free variables in its body and can return
-multiple values. On the other hand, it takes no arguments. Fortunately, events
-compose just as neatly with functions as they do with each other.
-
-@; use cases:
-@; - extend synchronization behaviors
-@; - control abstraction
-@;   - goes well with functions
-@;     - multi-value composition
-@; - cooperative concurrency
-@;   - like a composable thread fragment
-@;   - preemption is the cost of composability
-@; - communications
-@;   - build thread communication protocols
-@;   - gates
-
-@; extending synchronization behavior, thread messaging protocols, functional
-@; control abstractions, cooperative concurrency
+@subsection{Synchronization gates}
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Extending synchronization behavior}
+@subsection{Messaging protocols}
 
-The most basic use of events is for @rtech{thread} synchronization.
+@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-@example[
-  (define sema (make-semaphore))
-  (sync
-   (async-void
-    (thread (λ () (sync sema) (writeln 'T1)))
-    (thread (λ () (writeln 'T2) (semaphore-post sema)))))
-]
+@subsubsection{Duplicating @racket[channel-put-evt]}
 
-To make the semaphore switch to always synchronizing immediately after
-behaving normally a few time, use a @racket[guard-evt] to delay choosing an
-implementation until synchronization time.
+Lists of events are easy to extend with @racket[map].
 
 @example[
-  (define (guarded-semaphore N)
-    (define sema (make-semaphore))
-    (define (next) (set! N (- N 1)) sema)
-    (values sema (guard-evt (λ _ (if (<= N 0) always-evt (next))))))
+  (define (channel-dup-evt cs v)
+    (async-void* (map (curryr channel-put-evt v) cs)))
 ]
-
-The @racketid[guarded-semaphore] constructor returns two values: an actual
-semaphore for posting to, and a bounded reference for synchronizing on. At
-first, @racketid[sema] and @racketid[semb] behave the same when synchronized
-on. Each time @racketid[sema] receives a post, a @rtech{thread} unblocks.
-After @racketid[sema] receives @racketid[N] posts, @racketid[semb] becomes
-always @rtech{ready for synchronization}.
 
 @example[
-  (define-values (sema semb) (guarded-semaphore 2))
-  (sync
-   (async-void
-    (thread (λ ()
-              (writeln '(T1 X)) (semaphore-post sema)
-              (sleep 0.1)
-              (writeln '(T1 Y)) (semaphore-post sema)))
-    (thread (λ ()
-              (sync semb) (writeln '(T2 A))
-              (sync semb) (writeln '(T2 B))
-              (sync semb) (writeln '(T2 C))))))
+  (define cs (build-list 5 (λ _ (make-channel))))
+  (code:line
+   (define ts
+     (for/list ([c cs] [i 5]) (code:comment "read many times")
+       (thread (λ () (writeln (cons i (channel-get c))))))))
+  (code:line
+   (sync (seq (channel-dup-evt cs 'X) (code:comment "write once")
+              (async-void* ts))))
 ]
-
-We can get the same behavior with event-lang primitives @racket[join] and
-@racket[pure]. Composing @racket[join] with @racket[pure] splices one event
-onto another.
-
-@example[
-  (define (joined-semaphore N)
-    (define sema (make-semaphore))
-    (define (next) (set! N (- N 1)) sema)
-    (values sema (join (pure (if (<= N 0) always-evt (next))))))
-]
-
-The @racket[pure] form delays the call to @racketid[next] until
-synchronization time and the @racket[join] function forces the event returned
-by @racketid[next]. The @racket[become] form will do the same for any
-event-producing expression.
-
-@example[
-  (define (bounded-semaphore N)
-    (define sema (make-semaphore))
-    (define (next) (set! N (- N 1)) sema)
-    (values sema (become (if (<= N 0) always-evt (next)))))
-]
-
-@; multiple return values
-@; connecting events to functions: wrap-evt replace-evt guard-evt
-@; connecting functions to events: fmap, bind
-@; connecting events to events: app, seq, test
 
 @; =============================================================================
 
@@ -775,7 +1089,7 @@ event-producing expression.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Synchronization Gates}
+@subsection{Gates}
 
 @defmodule[event/gate]
 
@@ -815,7 +1129,7 @@ gate is opened, it cannot be closed.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Racket}
+@subsection{The Racket API}
 
 @defmodule[event/racket]
 
