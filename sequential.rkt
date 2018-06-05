@@ -60,17 +60,7 @@
   (append (drop-right Es+Es* 1) (last Es+Es*)))
 
 (define (args . Es)
-  (args* Es))
-
-(define (args* Es)
-  (if (null? Es)
-      (pure (values))
-      (replace-evt
-       (car Es)
-       (λ v
-         (fmap*
-          (λ vs (apply values (append v vs)))
-          (cdr Es))))))
+  (handle-evt (arg-list Es) (curry apply values)))
 
 
 (define (fmap f . Es)
