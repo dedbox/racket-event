@@ -106,15 +106,15 @@
   (replace-evt E1 (λ vs (if (andmap values vs) E2 E3))))
 
 (define (series E . fs)
-  (series* E fs))
-
-(define (series* E fs)
   (if (null? fs)
       E
       (replace-evt E (λ vs (series* (apply (car fs) vs) (cdr fs))))))
 
 (define (reduce f check . vs)
   (reduce* f check vs))
+(define (series* E fs)
+  (apply series E fs))
+
 
 (define (reduce* f check vs)
   (replace-evt
