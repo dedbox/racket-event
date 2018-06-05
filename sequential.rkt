@@ -122,17 +122,15 @@
 
 (define (memoize E)
   (define result #f)
-  (define (record . vs)
+  (define (save vs)
     (set! result (pure (apply values vs))))
-  (become (or result (bind E (compose (λ _ result) record)))))
+  (become (or result (bind E (λ vs (save vs) result)))))
 
 (define (promise E)
-  (define result #f)
-  (define (record . vs)
-    (set! result (pure (apply values vs))))
-  (bind
-   (thread (λ () (call-with-values (λ () (sync E)) record)))
-   (λ _ result)))
+  (define ch (make-channel))
+  (define thunk
+    (λ () (call-with-values (λ () (sync E)) (curry channel-put ch))))
+  (memoize (seq0 ch (thread thunk))))
 
 (define (promises . Es)
   (promises* Es))
