@@ -110,19 +110,19 @@
       E
       (replace-evt E (λ vs (series* (apply (car fs) vs) (cdr fs))))))
 
-(define (reduce f check . vs)
-  (reduce* f check vs))
 (define (series* E fs)
   (apply series E fs))
 
+(define (reduce f check . xs)
+  (reduce* f check xs))
 
-(define (reduce* f check vs)
+(define (reduce* f check xs)
   (replace-evt
-   (apply f vs)
-   (λ vs*
-     (if (apply check (append vs vs*))
-         (pure (apply values vs*))
-         (reduce* f check vs*)))))
+   (apply f xs)
+   (λ ys
+     (if (apply check (append xs ys))
+         (pure (apply values ys))
+         (reduce* f check ys)))))
 
 (define (loop f . vs)
   (loop* f vs))
