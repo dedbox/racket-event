@@ -24,8 +24,8 @@
   [seq (-> evt? evt? ... evt?)]
   [seq0 (-> evt? evt? ... evt?)]
   [test (-> evt? evt? evt? evt?)]
-  [series (-> evt? (-> any/c evt?) ... evt?)]
-  [series* (-> evt? (listof (-> any/c evt?)) evt?)]
+  [series (-> evt? (unconstrained-domain-> evt?) ... evt?)]
+  [series* (-> evt? (listof (unconstrained-domain-> evt?)) evt?)]
   [reduce (-> (unconstrained-domain-> evt?)
               (unconstrained-domain-> boolean?)
               any/c ... evt?)]
