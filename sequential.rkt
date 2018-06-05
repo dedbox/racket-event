@@ -81,9 +81,7 @@
   (replace-evt (args* (drop-right Es+f 1)) (last Es+f)))
 
 (define (bind* . Es+Es*+f)
-  (define Es+Es* (drop-right Es+Es*+f 1))
-  (define f (last Es+Es*+f))
-  (replace-evt (args* (rest-args Es+Es*)) f))
+  (replace-evt (args* (rest-args (drop-right Es+Es*+f 1))) (last Es+Es*+f)))
 
 (define (join z)
   (bind z values))
