@@ -11,6 +11,7 @@
  pure become
  (contract-out
   [return (-> any/c evt?)]
+  [arg-list (-> (listof evt?) evt?)]
   [args (-> evt? ... evt?)]
   [args* (-> evt? ... (listof evt?) evt?)]
   [fmap (-> procedure? evt? ... evt?)]
@@ -49,6 +50,11 @@
 (define (return v)
   (pure v))
 
+(define (arg-list Es)
+  (foldr
+   (λ (x ys)
+     (replace-evt x (λ v (handle-evt ys (λ (vs) (append v vs))))))
+   (pure null) Es))
 
 (define (rest-args Es+Es*)
   (append (drop-right Es+Es* 1) (last Es+Es*)))
