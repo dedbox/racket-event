@@ -107,7 +107,7 @@ The project has three outstanding objectives:
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Some examples}
+@subsection{Some Examples}
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -177,7 +177,7 @@ thunk.
 
 @; =============================================================================
 
-@section{The Combinators}
+@section{Event Combinators}
 
 @; use cases:
 @; - control abstraction
@@ -195,7 +195,7 @@ thunk.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{The @racket[pure] form}
+@subsection{The @racket[pure] Form}
 
 The @racket[pure] form wraps @racket[always-evt] to create an event that
 evaluates an arbitrary expression at synchronization time. It is the
@@ -219,7 +219,7 @@ pre-evaluate @racketid[datum], use @racket[return] instead.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Connecting events to functions}
+@subsection{Connecting Events to Functions}
 
 Racket comes with some useful event constructors: @racket[handle-evt],
 @racket[replace-evt], and @racket[guard-evt].
@@ -258,7 +258,7 @@ synchronization time.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Argument lists}
+@subsection{Argument Lists}
 
 The @racket[arg-list] combinator takes a list of events and produces a list of
 their @rtech{synchronization results}.
@@ -334,7 +334,7 @@ onto the others in the same way @racket[list*] does.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Connecting functions to events}
+@subsection{Connecting Functions to Events}
 
 The @racket[fmap] combinator applies a function to the @rtech{synchronization
 results} of its arguments. The @racket[handle-evt] constructor is essentially
@@ -430,7 +430,7 @@ until the results satisfy a predicate.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Connecting events to events}
+@subsection{Connecting Events to Events}
 
 The @racket[become] combinator synchronizes an event and then synchronizes the
 @rtech{synchronization result}.
@@ -528,7 +528,7 @@ test succeeds.
 
 @; =============================================================================
 
-@section{Extending Synchronization Time}
+@section{Synchronization Time}
 
 Everybody know events are good for synchronizing @rtech{threads}.
 
@@ -586,11 +586,11 @@ We can get the same behavior with @racket[become].
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Sequence generators}
+@subsection{Sequence Generators}
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-@subsubsection{The natural numbers}
+@subsubsection[#:style '(toc-hidden unnumbered)]{The natural numbers}
 
 Close over a counter and increment it once per sync.
 
@@ -617,7 +617,7 @@ repetition.
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-@subsubsection{The Fibonacci sequence}
+@subsubsection[#:style '(toc-hidden unnumbered)]{The Fibonacci sequence}
 
 The ``hello world'' of recursion.
 
@@ -675,11 +675,11 @@ This one is much faster:
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Synchronization gates}
+@section{Cooperative Concurrency}
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Messaging protocols}
+@subsection{Synchronization Gates}
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
