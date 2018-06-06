@@ -530,19 +530,10 @@ test succeeds.
 
 @section{Synchronization Time}
 
-Everybody know events are good for synchronizing @rtech{threads}.
-
-@example[
-  (define sema (make-semaphore))
-  (sync
-   (async-void
-    (thread (λ () (sync sema) (writeln 'T2)))
-    (thread (λ () (writeln 'T1) (semaphore-post sema)))))
-]
-
-If we wanted a @rtech{semaphore} to short-circuit after its first few posts,
-we could use @racket[guard-evt] to choose its behavior at each
-synchronization.
+The @rtech{semaphore} is a simple event-based @rtech{thread} synchronization
+mechanism. Suppose we wanted to create a @rtech{semaphore} that short-circuits
+after a few posts. We could use @racket[guard-evt] to choose its behavior at
+each synchronization.
 
 @example[
   (define (guarded-semaphore N)
@@ -551,38 +542,53 @@ synchronization.
     (values sema (guard-evt (λ () (if (<= N 0) always-evt (next))))))
 ]
 
-This constructor returns two values: an actual semaphore for posting and a
-bounded reference for synchronizing. At first, @racketid[sema] and
-@racketid[semb] do the same thing. Each time @racketid[sema] receives a post,
-a @rtech{thread} waiting on @racketid[semb] wakes up. After @racketid[sema]
-receives @racketid[N] posts, all @rtech{threads} waiting on @racketid[semb]
-wake up and it becomes permanently @rtech{ready for synchronization}.
+The @racket[become] combinator can do the same thing without the
+@racket[lambda] abstraction.
 
 @example[
-  (define-values (sema semb) (guarded-semaphore 2))
-  (sync
-   (async-void
-    (thread (λ ()
-              (writeln '(T1 X)) (semaphore-post sema)
-              (writeln '(T1 Y)) (semaphore-post sema)))
-    (thread (λ ()
-              (sync semb) (writeln '(T2 A))
-              (sync semb) (writeln '(T2 B))
-              (sync semb) (writeln '(T2 C))))))
-]
-
-We can get the same behavior with @racket[become].
-
-@example[
-  (define (joined-semaphore N)
+  (define (bounded-semaphore N)
     (define sema (make-semaphore))
     (define (next) (set! N (- N 1)) sema)
     (values sema (become (if (<= N 0) always-evt (next)))))
 ]
 
-@; =============================================================================
+Th @racketid[guarded-semaphore] constructor returns two values: an actual
+semaphore for posting and a bounded reference for synchronizing. At first,
+@racketid[sema] and @racketid[semb] do the same thing. Each time
+@racketid[sema] receives a post, a @rtech{thread} waiting on @racketid[semb]
+wakes up. After @racketid[sema] receives @racketid[N] posts, all
+@rtech{threads} waiting on @racketid[semb] wake up and it becomes permanently
+@rtech{ready for synchronization}.
 
-@section{Cooperative Concurrency}
+@example[
+  (define-values (sema semb) (bounded-semaphore 2))
+  (eval:alts
+   (sync
+    (async-void
+     (thread (λ ()
+               (writeln '(T1 X)) (semaphore-post sema)
+               (writeln '(T1 Y)) (semaphore-post sema)))
+     (thread (λ ()
+               (sync semb) (writeln '(T2 A))
+               (sync semb) (writeln '(T2 B))
+               (sync semb) (writeln '(T2 C))))))
+   @;-----------
+   (sync
+    (async-void
+     (thread (λ ()
+               (writeln '(T1 X)) (semaphore-post sema)
+               (sleep 0.1)
+               (writeln '(T1 Y)) (semaphore-post sema)))
+     (thread (λ ()
+               (sync semb) (writeln '(T2 A))
+               (sync semb) (writeln '(T2 B))
+               (sync semb) (writeln '(T2 C)))))))
+]
+
+
+@example[
+]
+
 
 @; -----------------------------------------------------------------------------
 
