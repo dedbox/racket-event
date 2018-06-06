@@ -147,8 +147,6 @@ Multiple syncs on @racketid[e2] will not replay side effects.
   (begin (sync e2) (sync e2) (sync e2))
 ]
 
-This is how the @racket[memoize] combinator works.
-
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 @subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
