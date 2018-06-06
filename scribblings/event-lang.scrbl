@@ -585,10 +585,27 @@ wakes up. After @racketid[sema] receives @racketid[N] posts, all
                (sync semb) (writeln '(T2 C)))))))
 ]
 
+@; -----------------------------------------------------------------------------
+
+@subsection{Duplicating @racket[channel-put-evt]}
+
+Lists of events are easy to extend with @racket[map].
 
 @example[
+  (define (channel-dup-evt cs v)
+    (async-void* (map (curryr channel-put-evt v) cs)))
 ]
 
+@example[
+  (define cs (build-list 5 (λ _ (make-channel))))
+  (code:line
+   (define ts
+     (for/list ([c cs] [i 5]) (code:comment "read many times")
+       (thread (λ () (writeln (cons i (channel-get c))))))))
+  (code:line
+   (sync (seq (channel-dup-evt cs 'X) (code:comment "write once")
+              (async-void* ts))))
+]
 
 @; -----------------------------------------------------------------------------
 
@@ -679,7 +696,7 @@ This one is much faster:
   (hash-ref fibs 15)
 ]
 
-@; -----------------------------------------------------------------------------
+@; =============================================================================
 
 @section{Cooperative Concurrency}
 
@@ -687,27 +704,13 @@ This one is much faster:
 
 @subsection{Synchronization Gates}
 
-@; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+@; -----------------------------------------------------------------------------
 
-@subsubsection{Duplicating @racket[channel-put-evt]}
+@subsection{Messaging Protocols}
 
-Lists of events are easy to extend with @racket[map].
+@; -----------------------------------------------------------------------------
 
-@example[
-  (define (channel-dup-evt cs v)
-    (async-void* (map (curryr channel-put-evt v) cs)))
-]
-
-@example[
-  (define cs (build-list 5 (λ _ (make-channel))))
-  (code:line
-   (define ts
-     (for/list ([c cs] [i 5]) (code:comment "read many times")
-       (thread (λ () (writeln (cons i (channel-get c))))))))
-  (code:line
-   (sync (seq (channel-dup-evt cs 'X) (code:comment "write once")
-              (async-void* ts))))
-]
+@subsection{Interleaving Events}
 
 @; =============================================================================
 
