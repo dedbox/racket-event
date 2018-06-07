@@ -8,7 +8,9 @@
   scribble/examples
   (for-label event
              racket/base
-             racket/contract/base))
+             racket/contract/base
+             racket/function
+             racket/list))
 
 @(random-seed 7)
 
