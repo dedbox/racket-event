@@ -199,8 +199,7 @@ The @racket[pure] form wraps @racket[always-evt] to create an event that
 evaluates an arbitrary expression at synchronization time. It is the
 @racket[lambda] of event programming. The @racket[pure] form can close over
 free variables in its body, and it can produce multiple values simultaneously.
-On the other hand, it takes no arguments. Fortunately, events and functions
-compose neatly to overcome this limitation.
+On the other hand, it takes no arguments.
 
 The implementation of @racket[pure] is dead simple.
 
@@ -222,8 +221,8 @@ pre-evaluate @racketid[datum], use @racket[return] instead.
 Racket comes with some useful event constructors: @racket[handle-evt],
 @racket[replace-evt], and @racket[guard-evt].
 
-The @racket[handle-evt] constructor composes an event with a function by
-applying the function to the @rtech{synchronization result} of the event.
+The @racket[handle-evt] constructor extends the synchronization time of an
+event by applying a function to its @rtech{synchronization result}.
 
 @example[
   (sync (handle-evt (pure (values 1 2 3)) +))
