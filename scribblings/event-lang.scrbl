@@ -9,7 +9,7 @@
   (for-label event
              racket/base
              racket/contract/base
-             racket/function
+             (except-in racket/function thunk)
              racket/list))
 
 @(random-seed 7)
