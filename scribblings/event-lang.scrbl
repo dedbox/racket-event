@@ -394,10 +394,7 @@ arbitrary event combinators.
 @example[
   (eval:alts
    (define (series evt . fs)
-     (if (null? fs)
-         evt
-         (replace-evt
-          evt (λ vs (apply series (apply (car fs) vs) (cdr fs))))))
+     (foldl (λ (f e) (replace-evt e f)) evt fs))
    (void))
 ]
 

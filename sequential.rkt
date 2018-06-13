@@ -96,23 +96,20 @@
   (replace-evt E1 (λ vs (if (andmap values vs) E2 E3))))
 
 (define (series E . fs)
-  (if (null? fs)
-      E
-      (replace-evt E (λ vs (series* (apply (car fs) vs) (cdr fs))))))
+  (foldl (λ (f e) (replace-evt e f)) E fs))
 
 (define (series* E fs)
   (apply series E fs))
 
 (define (reduce f check . xs)
-  (reduce* f check xs))
-
-(define (reduce* f check xs)
+  (define (pred ys) (apply check (append xs ys)))
+  (define (recur ys) (apply reduce f check ys))
   (replace-evt
    (apply f xs)
-   (λ ys
-     (if (apply check (append xs ys))
-         (pure (apply values ys))
-         (reduce* f check ys)))))
+   (λ ys (if (pred ys) (pure (apply values ys)) (recur ys)))))
+
+(define (reduce* f check xs)
+  (apply reduce f check xs))
 
 (define (loop f . vs)
   (loop* f vs))
