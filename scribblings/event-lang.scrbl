@@ -140,7 +140,7 @@ reproduce them immediately.
    (void))
 ]
 
-Multiple syncs on @racketid[e2] will not replay side effects.
+Only the first successful sync has side effects.
 
 @example[
   (define e1 (pure (write 'X)))
@@ -200,8 +200,8 @@ thunk.
 The @racket[pure] form wraps @racket[always-evt] to create an event that
 evaluates an arbitrary expression at synchronization time. It is the
 @racket[lambda] of event programming. The @racket[pure] form can close over
-free variables in its body, and it can produce multiple values simultaneously.
-On the other hand, it takes no arguments.
+free variables in its body, and it can produce multiple values simultaneously,
+but it has no argument list.
 
 The implementation of @racket[pure] is dead simple.
 
@@ -212,15 +212,15 @@ The implementation of @racket[pure] is dead simple.
    (void))
 ]
 
-The @racketid[datum] is injected into a @racket[lambda] abstraction and will
-be re-evaluated each time the event is successfully synchronized. To
-pre-evaluate @racketid[datum], use @racket[return] instead.
+The @racketid[datum] is injected into a @racket[lambda] form and will be
+re-evaluated each time the event is successfully synchronized. To pre-evaluate
+@racketid[datum], use @racket[return] instead.
 
 @; -----------------------------------------------------------------------------
 
 @subsection{Connecting Events to Functions}
 
-Racket comes with some useful event constructors: @racket[handle-evt],
+Racket provides the basic event constructors: @racket[handle-evt],
 @racket[replace-evt], and @racket[guard-evt].
 
 The @racket[handle-evt] constructor extends the synchronization time of an
@@ -238,6 +238,9 @@ end of another.
 @example[
   (define (splice-evts e1 e2)
     (replace-evt e1 (λ _ e2)))
+]
+
+@example[
   (sync
    (splice-evts
     (pure (writeln 'E1))
@@ -248,10 +251,15 @@ The @racket[guard-evt] constructor invokes a thunk to produce an event at
 synchronization time.
 
 @example[
-  (define n 0)
+  (define N 0)
   (define one-two-many
     (guard-evt
-     (λ () (set! n (+ n 1)) (return (if (<= n 2) n 'many)))))
+     (λ ()
+      (set! N (add1 N))
+      (return (if (< N 3) N 'many)))))
+]
+
+@example[
   (sync (event-list* (make-list 4 one-two-many)))
 ]
 
@@ -301,8 +309,7 @@ or with a loop.
    (loop-arg-list (list (pure 1) (pure 2) (pure (values 3 4)))))
 ]
 
-The @racket[args] combinator wraps @racket[arg-list] with a function that
-applies @racket[values] to the result.
+The @racket[args] combinator composes @racket[arg-list] with @racket[values].
 
 @example[
   (eval:alts
@@ -318,7 +325,7 @@ applies @racket[values] to the result.
 Constructors like @racket[args] with a @gtech{rest argument} are handy in the
 REPL. In library code, functions with a final list argument can be easier to
 use. Some constructs have a starred variant that splices its last argument
-onto the others in the same way @racket[list*] does.
+onto the others in the way @racket[list*] does.
 
 @example[
   (eval:alts
@@ -343,8 +350,8 @@ argument is often easier.
 
 @example[
   (eval:alts
-   (define (fmap f . x-evts)
-     (handle-evt (args* x-evts) f))
+   (define (fmap f . evts)
+     (handle-evt (args* evts) f))
    (void))
 ]
 
@@ -381,7 +388,7 @@ is often easier.
   (sync (calc2 '((1 * 2) + (3 * 4))))
 ]
 
-The @racket[series] constructor connects results to arguments in a series of
+The @racket[series] constructor passes results to arguments in a series of
 arbitrary event combinators.
 
 @example[
@@ -408,12 +415,11 @@ until the results satisfy a predicate.
 @example[
   (eval:alts
    (define (reduce f check . xs)
+     (define (pred ys) (apply check (append xs ys)))
+     (define (recur ys) (apply reduce f check ys))
      (replace-evt
       (apply f xs)
-      (λ ys
-        (if (apply check (append xs ys))
-            (pure (apply values ys))
-            (apply reduce f check ys)))))
+      (λ ys (if (pred ys) (pure (apply values ys)) (recur ys)))))
    (void))
 ]
 
