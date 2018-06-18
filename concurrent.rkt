@@ -12,7 +12,7 @@
   [async-set (-> evt? ... evt?)]
   [async-set* (-> (listof evt?) evt?)]
   [async-args (-> evt? ... evt?)]
-  [async-args* (-> (listof evt?) evt?)]
+  [async-args* (->* ((listof evt?)) (#:limit exact-nonnegative-integer?) evt?)]
   [async-fmap (-> procedure? evt? ... evt?)]
   [async-fmap* (-> procedure? (listof evt?) evt?)]
   [async-app (-> evt? evt? ... evt?)]
@@ -39,8 +39,9 @@
 (define (async-args . Es)
   (async-args* Es))
 
-(define (async-args* Es)
-  (define vs (make-vector (length Es) '?))
+(define (async-args* Es #:limit [limit #f])
+  (define ?? (string->unreadable-symbol "??"))
+  (define vs (make-vector (length Es) ??))
   (define Hs (make-vector (vector-length vs) #f))
   (for/list ([E Es]
              [k (vector-length vs)])
@@ -49,11 +50,12 @@
      (handle-evt E (λ (v)
                      (vector-set! vs k v)
                      (vector-set! Hs k #f)))))
-  (let loop ()
+  (let loop ([count 0])
     (define evts (filter values (vector->list Hs)))
-    (if (null? evts)
-        (pure (apply values (vector->list vs)))
-        (replace-evt (apply choice-evt evts) (λ _ (loop))))))
+    (if (or (null? evts) (and limit (>= count limit)))
+        (let ([results (filter (λ (v) (not (eq? ?? v))) (vector->list vs))])
+          (pure (apply values results)))
+        (replace-evt (apply choice-evt evts) (λ _ (loop (add1 count)))))))
 
 (define (async-fmap f . Es)
   (async-fmap* f Es))
