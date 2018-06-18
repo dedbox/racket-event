@@ -16,7 +16,7 @@
  (all-from-out event/racket/async-pair
                event/racket/pair
                event/racket/void)
- event-let event-let* event-cond
+ event-let event-let* event-let*-values event-cond
  async-let)
 
 ;;; Syntactic Forms
@@ -29,6 +29,12 @@
   (syntax-parse stx
     [(_ () E ...+) #'(seq E ...)]
     [(_ ([x V] bs ...) E ...+) #'(bind V (λ (x) (event-let* (bs ...) E ...)))]))
+
+(define-syntax (event-let*-values stx)
+  (syntax-parse stx
+    [(_ () E ...+) #'(seq E ...)]
+    [(_ ([xs Vs] bs ...) E ...+)
+     #'(bind Vs (λ xs (event-let*-values (bs ...) E ...)))]))
 
 (define-syntax (event-cond stx)
   (syntax-parse stx
@@ -63,6 +69,11 @@
     (check
      = (sync (event-let* ([x (pure 1)] [y (pure (+ x 2))]) (pure (+ x y))))
      4))
+
+  (test-case "event-let*-values"
+    (check
+     = (sync (event-let*-values ([(x y) (pure (values 1 2))]) (pure (+ x y))))
+     3))
 
   (test-case "event-cond"
     (check-pred void? (sync (event-cond)))
