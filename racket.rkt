@@ -23,7 +23,7 @@
 
 (define-syntax (event-let stx)
   (syntax-parse stx
-    [(_ ([x V] ...) E ...) #'(bind V ... (λ (x ...) (seq E ...)))]))
+    [(_ ([x V] ...) E ...+) #'(bind V ... (λ (x ...) (seq E ...)))]))
 
 (define-syntax (event-let* stx)
   (syntax-parse stx
