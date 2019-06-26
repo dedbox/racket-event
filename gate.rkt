@@ -1,8 +1,8 @@
-#lang racket/base
+#lang algebraic/racket/base
 
-(require
- event/sequential
- racket/contract/base)
+(require algebraic/data/event
+         event
+         racket/contract/base)
 
 (provide
  (contract-out
@@ -12,21 +12,22 @@
   [gate-open? predicate/c]
   [gated (-> gate? evt? evt?)]))
 
-(struct gate (thread) #:property prop:evt (λ (g) (fmap void (gate-thread g))))
+(instantiate EventApplicative)
+
+(struct gate (thread)
+  #:property prop:evt (φ G (void-evt (gate-thread G))))
 
 (define (make-gate)
   (gate (thread (λ () (sync never-evt)))))
 
-(define (open-gate g)
-  (seq
-   (pure (kill-thread (gate-thread g)))
-   (fmap void (gate-thread g))))
+(define (open-gate G)
+  (do (event (kill-thread (gate-thread G)))
+      (void-evt (gate-thread G))))
 
-(define (gate-open? g)
-  (thread-dead? (gate-thread g)))
+(define (gate-open? G)
+  (thread-dead? (gate-thread G)))
 
-(define (gated g E)
-  (seq0 E g))
+(define gated (flip <*))
 
 ;;; Unit Tests
 
@@ -34,18 +35,18 @@
   (require rackunit)
 
   (test-case "gate"
-    (define g (make-gate))
-    (check-pred gate? g)
-    (check-false (gate-open? g))
-    (define ts (for/list ([_ 10]) (thread (λ () (sync g)))))
-    (for-each (compose check-false thread-dead?) ts)
-    (sync (open-gate g))
-    (check-pred gate-open? g)
-    (sync g)
-    (for-each sync ts))
+    (define G (make-gate))
+    (check-pred gate? G)
+    (check-false (gate-open? G))
+    (define threads (for/list ([_ 10]) (thread (λ () (sync G)))))
+    (for-each (.. check-false thread-dead?) threads)
+    (sync (open-gate G))
+    (check-pred gate-open? G)
+    (sync G)
+    (for-each sync threads))
 
   (test-case "gated"
-    (define g (make-gate))
-    (define t (thread (λ () (check = (sync (gated g (pure 123))) 123))))
-    (sync (open-gate g))
+    (define G (make-gate))
+    (define t (thread (λ () (check = (sync (gated G (pure 123))) 123))))
+    (sync (open-gate G))
     (void (sync t))))
