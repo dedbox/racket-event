@@ -20,17 +20,7 @@
    (λ ()
      (parameterize ([sandbox-output       'string]
                     [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/racket/base))))
-
-   ;; (parameterize
-   ;;     ([sandbox-output 'string]
-   ;;      [sandbox-error-output 'string]
-   ;;      [sandbox-memory-limit 50]
-   ;;      [sandbox-eval-limits '(30 50)]
-   ;;      [sandbox-make-inspector current-inspector])
-   ;;   (make-evaluator 'racket #:requires '(event)))
-
-  )
+       (make-base-eval #:lang 'algebraic/racket/base '(void)))))) 
 
 (define-syntax-rule (example expr ...)
   (examples #:eval event-evaluator #:label #f expr ...))

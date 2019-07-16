@@ -1,6 +1,9 @@
 #lang algebraic/racket/base
 
-(require algebraic/data/event
+(require algebraic/class/applicative
+         algebraic/class/functor
+         algebraic/class/monad
+         algebraic/data/event
          event
          racket/contract/base)
 

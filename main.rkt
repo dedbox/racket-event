@@ -1,27 +1,28 @@
 #lang algebraic/racket/base
 
-(require algebraic/data/event
+(require algebraic/class/applicative
+         algebraic/class/functor
+         algebraic/class/monad
+         algebraic/data/event
          algebraic/data/values
-         racket/contract/base
-         (for-syntax syntax/parse
-                     syntax/strip-context))
+         racket/contract/base)
 
 (provide
- event become
+ event become-evt
  (contract-out
   ;; Sequential Event Combinators
   [list-evt (-> evt? ... evt?)]
-  [id-evt (-> evt? ... evt?)]
+  [values-evt (-> evt? ... evt?)]
   [void-evt (-> evt? ... evt?)]
-  [test-evt (-> evt? evt? evt? evt?)]
+  [if-evt (-> evt? evt? evt? evt?)]
   [series-evt (-> evt? procedure? ... evt?)]
-  [reduce-evt (-> procedure? (unconstrained-domain-> boolean?) any/c ... any)]
+  [reduce-evt (-> procedure? #:while (unconstrained-domain-> boolean?) any/c ... any)]
   [memoize-evt (-> evt? evt?)]
   ;; Concurrent Event Combinators
-  [list-set-evt (-> evt? ... evt?)]
-  [id-set-evt (-> evt? ... evt?)]
+  [list-bag-evt (-> evt? ... evt?)]
+  [values-bag-evt (-> evt? ... evt?)]
   [async-list-evt (-> evt? ... evt?)]
-  [async-id-evt (-> evt? ... evt?)]
+  [async-values-evt (-> evt? ... evt?)]
   [async-void-evt (-> evt? ... evt?)]
   [promise-evt (-> evt? evt?)]
   [promises-evt (-> evt? ... evt?)]))
@@ -29,10 +30,11 @@
 (instantiate EventApplicative)
 (instantiate values- ValuesMonad)
 
-(define-syntax event (μ* (body ...+) (handle-evt always-evt (λ _ body ...))))
+(define-syntax event
+  (μ* (body ...+) (handle-evt always-evt (λ _ body ...))))
 
-(define-syntax become
-  (μ* (body ...+) #,(replace-context this-syntax #'(join (event body ...)))))
+(define-syntax become-evt
+  (μ* (body ...+) (join (event body ...))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Sequential Event Combinators
@@ -45,53 +47,53 @@
          (return null)
          evts))
 
-(define (id-evt . evts)
+(define (values-evt . evts)
   (do (xs) <- ($ list-evt evts)
       (event ($ id xs))))
 
 (define (void-evt . evts)
   (fmap void ($ list-evt evts)))
 
-(define (test-evt test-evt then-evt else-evt)
+(define (if-evt test-evt then-evt else-evt)
   (do xs <- test-evt
       (if (andmap id xs) then-evt else-evt)))
 
 (define (series-evt init-evt . fs)
   (foldl =<< init-evt fs))
 
-(define (reduce-evt f check . xs)
-  (do ys <- ($ f xs)
-      (if ($ check (++ xs ys))
-          ($ return ys)
-          ($ reduce-evt f check ys))))
+(define (reduce-evt f #:while [pred (λ _ #t)] . xs)
+  (if ($ pred xs)
+      (do ys <- ($ f xs)
+          ($ reduce-evt f #:while pred ys))
+      ($ return xs)))
 
 (define (memoize-evt evt)
   (define result #f)
   (define (save xs)
     (set! result (event ($ id xs))))
-  (become (or result (>>= evt (λ xs (save xs) result)))))
+  (become-evt (or result (>>= evt (λ xs (save xs) result)))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Concurrent Event Combinators 
 
-(define list-set-evt
+(define list-bag-evt
   (function*
     [() (return null)]
     [evts (do let identify (φ evt (fmap (>> list evt) evt))
               ((evt . xs)) <- ($ choice-evt (map identify evts))
-              (ys) <- ($ list-set-evt (remq evt evts))
+              (ys) <- ($ list-bag-evt (remq evt evts))
               (return (++ xs ys)))]))
 
-(define (id-set-evt . evts)
-  (do (xs) <- ($ list-set-evt evts)
+(define (values-bag-evt . evts)
+  (do (xs) <- ($ list-bag-evt evts)
       (event ($ id xs))))
 
 (define (async-list-evt . evts)
-  (do (xss) <- ($ list-set-evt
+  (do (xss) <- ($ list-bag-evt
                   (map (>> liftA2 list) (build-list (length evts) pure) evts))
       (return ($ ++ (map cdr (sort xss < #:key car))))))
 
-(define (async-id-evt . evts)
+(define (async-values-evt . evts)
   (do (xs) <- ($ async-list-evt evts)
       (event ($ id xs))))
 
@@ -125,24 +127,22 @@
     (check-event (list-evt (event 1) (event 2)) '((1 2)))
     (check-event (list-evt (event 1) (event 2) (event 3)) '((1 2 3))))
 
-  (test-case "id-evt"
-    (check-event (id-evt) '())
-    (check-event (id-evt (event 1)) '(1))
-    (check-event (id-evt (event 1) (event 2)) '(1 2))
-    (check-event (id-evt (event 1) (event 2) (event 3)) '(1 2 3)))
+  (test-case "values-evt"
+    (check-event (values-evt) '())
+    (check-event (values-evt (event 1)) '(1))
+    (check-event (values-evt (event 1) (event 2)) '(1 2))
+    (check-event (values-evt (event 1) (event 2) (event 3)) '(1 2 3)))
 
-  (test-case "test-evt"
-    (check-event (test-evt (event #t) (event 1) (event 2)) '(1))
-    (check-event (test-evt (event #f) (event 1) (event 2)) '(2)))
+  (test-case "if-evt"
+    (check-event (if-evt (event #t) (event 1) (event 2)) '(1))
+    (check-event (if-evt (event #f) (event 1) (event 2)) '(2)))
 
   (test-case "series-evt"
-    (with-instance EventMonad
-      (check-event
-       (series-evt (event 1) (.. return (>> + 2)) (.. return (>> * 3))) '(9))))
+    (check-event
+     (series-evt (event 1) (.. return (>> + 2)) (.. return (>> * 3))) '(9)))
 
   (test-case "reduce-evt"
-    (with-instance EventApplicative
-      (check-event (reduce-evt (.. pure add1) (<< >= 10) 0) '(10))))
+    (check-event (reduce-evt (.. return add1) 0 #:while (φ n (< n 10))) '(10)))
 
   (test-case "memoize-evt"
     (define L null)
@@ -170,34 +170,34 @@
       (check = (sync p) j))
     (check equal? L '(A A A A A A A A A A)))
 
-  (test-case "list-set-evt"
+  (test-case "list-bag-evt"
     (for ([k 10])
       (define xs (build-list k id))
       (define evts (map pure xs))
       (let loop ([try 1])
-        (when (> try 10) (fail-check "too many tries"))
-        (define ys (sync ($ list-set-evt evts)))
+        (when (> try 100) (fail-check "too many tries"))
+        (define ys (sync ($ list-bag-evt evts)))
         (check = (length ys) k)
         (for ([j k]) (check-pred (>> member j) ys))
         (when (and (> k 1) (equal? ys xs))
           (loop (add1 try))))
       (define threads (for/list ([_ 100]) (thread (λ () (sleep 0.1)))))
-      (or (sync/timeout 0.5 (fmap void ($ list-set-evt threads)))
+      (or (sync/timeout 0.5 (fmap void ($ list-bag-evt threads)))
           (fail-check "time out"))))
 
-  (test-case "id-set-evt"
+  (test-case "values-bag-evt"
     (for ([k 10])
       (define xs (build-list k id))
       (define evts (map pure xs))
       (let loop ([try 1])
         (when (> try 10) (fail-check "too many tries"))
-        (define ys (values-> list (sync ($ id-set-evt evts))))
+        (define ys (values-> list (sync ($ values-bag-evt evts))))
         (check = (length ys) k)
         (for ([j k]) (check-pred (>> member j) ys))
         (when (and (> k 1) (equal? ys xs))
           (loop (add1 try)))))
     (define threads (for/list ([_ 100]) (thread (λ () (sleep 0.1)))))
-    (or (sync/timeout 0.5 (fmap void ($ id-set-evt threads)))
+    (or (sync/timeout 0.5 (fmap void ($ values-bag-evt threads)))
         (fail-check "time out")))
 
   (test-case "async-list-evt"
@@ -206,11 +206,11 @@
     (for ([_ 10]) (check-event (async-list-evt (event 1) (event 2)) '((1 2))))
     (for ([_ 10]) (check-event (async-list-evt (event 1) (event 2) (event 3)) '((1 2 3)))))
 
-  (test-case "async-id-evt"
-    (for ([_ 10]) (check-event (async-id-evt) '()))
-    (for ([_ 10]) (check-event (async-id-evt (event 1)) '(1)))
-    (for ([_ 10]) (check-event (async-id-evt (event 1) (event 2)) '(1 2)))
-    (for ([_ 10]) (check-event (async-id-evt (event 1) (event 2) (event 3)) '(1 2 3))))
+  (test-case "async-values-evt"
+    (for ([_ 10]) (check-event (async-values-evt) '()))
+    (for ([_ 10]) (check-event (async-values-evt (event 1)) '(1)))
+    (for ([_ 10]) (check-event (async-values-evt (event 1) (event 2)) '(1 2)))
+    (for ([_ 10]) (check-event (async-values-evt (event 1) (event 2) (event 3)) '(1 2 3))))
 
   (test-case "promises-evt"
     (define ch (make-channel))

@@ -7,20 +7,19 @@
 
 @require[
   @for-label[
-    algebraic/data/event
-    (except-in algebraic/racket/base do)
     event
+    racket/base
     racket/contract/base
+    racket/function
     racket/list
   ]
 ]
 
 @example[#:hidden
-  (require algebraic/data/event
-           event
+  (require event
+           racket/function
            racket/list
            racket/match)
-  (instantiate EventApplicative)
 ]
 
 @table-of-contents[]
@@ -36,9 +35,7 @@ synchronizable events. It provides a primitive lifting form
 
 along with a collection of event combinators.
 
-@example[
-  (sync (list-evt (event 1) (event 2) (event 3)))
-]
+@example[(sync (list-evt (event 1) (event 2) (event 3)))]
 
 Composite events make progress by synchronizing constituent events, either
 concurrently or in a predictable sequence. Synchronization results can be
@@ -48,11 +45,11 @@ ordered as specified,
   (let ([t0 (current-inexact-milliseconds)])
     (define (now) (- (current-inexact-milliseconds) t0))
     (sync (async-list-evt
-           (event (:: 1 (now)))
-           (event (:: 2 (now)))
-           (event (:: 3 (now)))
-           (event (:: 4 (now)))
-           (event (:: 5 (now))))))
+           (event (cons 1 (now)))
+           (event (cons 2 (now)))
+           (event (cons 3 (now)))
+           (event (cons 4 (now)))
+           (event (cons 5 (now))))))
 ]
 
 or as completed.
@@ -60,12 +57,12 @@ or as completed.
 @example[
   (let ([t0 (current-inexact-milliseconds)])
     (define (now) (- (current-inexact-milliseconds) t0))
-    (sync (list-set-evt
-           (event (:: 1 (now)))
-           (event (:: 2 (now)))
-           (event (:: 3 (now)))
-           (event (:: 4 (now)))
-           (event (:: 5 (now))))))
+    (sync (list-bag-evt
+           (event (cons 1 (now)))
+           (event (cons 2 (now)))
+           (event (cons 3 (now)))
+           (event (cons 4 (now)))
+           (event (cons 5 (now))))))
 ]
 
 @; -----------------------------------------------------------------------------
@@ -80,8 +77,12 @@ Use @racket[async-void-evt] to wait until all events are ready and then ignore
 the results.
 
 @example[
-  (sync (async-void-evt (event (print 1) 1) (event (print 2) 2)))
-  (sync (async-void-evt (event (print 3) 3) (event (print 4) 4)))
+  (sync (async-void-evt (event (print 1) 4)
+                        (event (print 2) 5)
+                        (event (print 3) 6)))
+  (sync (async-void-evt (event (print 7) 10)
+                        (event (print 8) 11)
+                        (event (print 9) 12)))
 ]
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -103,9 +104,8 @@ effects.
 
 @subsubsection[#:style '(toc-hidden unnumbered)]{Promises}
 
-Capture the return values of a @racketid[thunk] in a background @rtech{thread}
-and then produce them as @rtech{synchronization results}. The results are
-memoized explicitly.
+Synchronize an event in a background @rtech{thread} and then memoize the
+@rtech{synchronization results}.
 
 @example[
   (define p (promise-evt (event (writeln 1) 2)))
@@ -122,26 +122,26 @@ memoized explicitly.
 @subsection{The @racket[event] Form}
 
 The @racket[event] form creates an event that evaluates an arbitrary
-expression at synchronization time. It is the @racket[lambda] of event
-programming: @racket[event]s can close over free variables in its body and it
-can produce multiple values simultaneously, but it has no argument list.
+expression at synchronization time. It is like the @racket[lambda] of event
+programming: an @racket[event] can close over free variables in its body and
+it can produce multiple values simultaneously, but it has no argument list.
 
 @; -----------------------------------------------------------------------------
 
 @subsection{Connecting Events to Functions}
 
-Racket provides the following basic event constructors: @racket[handle-evt],
+Racket comes with some basic event constructors: @racket[handle-evt],
 @racket[replace-evt], and @racket[guard-evt].
 
 @racket[handle-evt] extends the synchronization time of an event by applying a
 function to its @rtech{synchronization result}.
 
 @example[
-  (sync (handle-evt (event (id 1 2 3)) +))
-  (sync (handle-evt (event (id 1 2 3)) (λ xs (map sub1 xs))))
+  (sync (handle-evt (event (values 1 2 3)) +))
+  (sync (handle-evt (event (values 1 2 3)) (λ xs (map sub1 xs))))
 ]
 
-@racket[replace-evt] composes an event with any function that produces another
+@racket[replace-evt] composes an event with a function that produces another
 event. In the simplest case, this splices one event onto the end of another.
 
 @example[
@@ -155,20 +155,17 @@ event. In the simplest case, this splices one event onto the end of another.
          (event (writeln 'E2))))
 ]
 
-@racket[guard-evt] invokes a thunk to produce an event at synchronization
-time.
+@racket[guard-evt] invokes an event-producing thunk at synchronization time.
 
 @example[
-  (define N 0)
   (define one-two-many
-    (guard-evt (λ ()
-                 (set! N (add1 N))
-                 (return (if (< N 3) N 'many)))))
+    (guard-evt (let ([N 0])
+                 (λ ()
+                   (set! N (add1 N))
+                   (event (if (< N 3) N 'many))))))
 ]
 
-@example[
-  (sync (apply list-evt (make-list 4 one-two-many)))
-]
+@example[(sync (apply list-evt (make-list 4 one-two-many)))]
 
 @; -----------------------------------------------------------------------------
 
@@ -177,15 +174,11 @@ time.
 @racket[list-evt] takes a list of events and produces a list of their
 @rtech{synchronization results}.
 
-@example[
-  (sync (list-evt (event 1) (event 2) (event (id 3 4))))
-]
+@example[(sync (list-evt (event 1) (event 2) (event (values 3 4))))]
 
-The @racket[id-evt] combinator composes @racket[list-evt] with @racket[id].
+The @racket[values-evt] combinator composes @racket[list-evt] with @racket[values].
 
-@example[
-  (sync (id-evt (event 1) (event 2) (event 3)))
-]
+@example[(sync (values-evt (event 1) (event 2) (event 3)))]
 
 @; -----------------------------------------------------------------------------
 
@@ -196,9 +189,9 @@ combinators.
 
 @example[
   (sync (series-evt
-         (event (id 1 2 3))
-         (λ xs (event (id ($ + xs) 4)))
-         (.. return *)))
+         (event (values 1 2 3))
+         (λ xs (event (values (apply + xs) 4)))
+         (λ ys (event (apply * ys)))))
 ]
 
 @racket[reduce-evt] recursively applies a function to its results until the
@@ -207,52 +200,65 @@ results satisfy a predicate.
 @example[
   (define (two-to-the p)
     (reduce-evt
-     (λ (n k) (event (id (* n 2) (+ k 1))))
-     (φ* (__ __ __ k) (>= k p))
-     1 0))
-  (sync (two-to-the 10))
-  (sync (two-to-the 16))
+     (λ (n k) (event (values (* n 2) (+ k 1))))
+     1 0
+     #:while (λ (__ k) (< k p))))
+  (sync (two-to-the 4))
+  (sync (two-to-the 7))
 ]
 
 @; -----------------------------------------------------------------------------
 
 @subsection{Connecting Events to Events}
 
-@racket[become] synchronizes an event and then synchronizes its
-@rtech{synchronization result}. It gets its name from the actor model.
+The @racket[become-evt] form wraps an event-producing expression sequence in
+an event with the same synchronization-time behavior and
+@rtech{synchronization result}.
 
 @example[
-  (define (worker N)
-    (*> (thread-receive-evt)
-        (become (match (thread-receive)
-                  ['inc (become (worker (add1 N)))]
-                  ['dec (become (worker (sub1 N)))]
-                  [(? thread? t) (*> (deliver t N) (worker N))]))))
-  (define (deliver t msg)
-    (void-evt (thread (λ () (thread-send t msg)))))
-  (define a-printer (thread (λ () (writeln (thread-receive)))))
-  (define a-worker (thread (λ () (sync (worker 0)))))
-  (for ([_ 5]) (sync (deliver a-worker 'inc)))
-  (for ([_ 2]) (sync (deliver a-worker 'dec)))
-  (sync (*> (deliver a-worker a-printer)
-            (void-evt a-printer)))
+  (define evt (become-evt (println 'X) (event 'nested)))
+  (sync evt)
+  (sync evt)
 ]
 
-@racket[test-evt] is a multi-valued @racket[if] expression for events. If none
-of the values produced by @racketid[test-evt] are @racket[#f], the test
-succeeds.
+Its name comes from the Actor model.
 
 @example[
-  (list
-   (sync (test-evt (event (id 1 2 )) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event (id 3 #f)) (event 'Tru) (event 'Fls))))
+  (define (worker-evt N)
+    (replace-evt
+     (thread-receive-evt)
+     (λ _
+       (become-evt
+        (match (thread-receive)
+               ['inc (worker-evt (add1 N))]
+               ['dec (worker-evt (sub1 N))]
+               [(? thread? t) (replace-evt (deliver-evt t N)
+                                           (λ _ (worker-evt N)))])))))
+  (define (deliver-evt t msg)
+    (void-evt (thread (λ () (thread-send t msg)))))
+]
+
+@example[
+  (define a-printer (thread (λ () (writeln (thread-receive)))))
+  (define a-worker (thread (λ () (sync (worker-evt 0)))))
+  (for ([_ 5]) (sync (deliver-evt a-worker 'inc)))
+  (for ([_ 2]) (sync (deliver-evt a-worker 'dec)))
+  (sync (deliver-evt a-worker a-printer))
+]
+
+@racket[if-evt] is a multi-valued @racket[if] expression for events. If any of
+the values produced by the test event are @racket[#f], the test fails.
+
+@example[
+  (sync (if-evt (event (values 1  2)) (event 'Tru) (event 'Fls)))
+  (sync (if-evt (event (values 3 #f)) (event 'Tru) (event 'Fls)))
 ]
 
 @; =============================================================================
 
 @section{Synchronization Time}
 
-The @rtech{semaphore} is a simple event-based @rtech{thread} synchronization
+A @rtech{semaphore} is a simple event-based @rtech{thread} synchronization
 mechanism. Suppose we wanted to create a @rtech{semaphore} that short-circuits
 after a few posts. We could use @racket[guard-evt] to choose its behavior at
 each synchronization.
@@ -261,17 +267,17 @@ each synchronization.
   (define (guarded-semaphore N)
     (define sema (make-semaphore))
     (define (next) (set! N (- N 1)) sema)
-    (id sema (guard-evt (λ () (if (<= N 0) always-evt (next))))))
+    (values sema (guard-evt (λ () (if (<= N 0) always-evt (next))))))
 ]
 
-The @racket[become] combinator can do the same thing without the
-@racket[lambda] abstraction.
+@racket[become-evt] can do the same thing without the @racket[lambda]
+abstraction.
 
 @example[
   (define (bounded-semaphore N)
     (define sema (make-semaphore))
     (define (next) (set! N (- N 1)) sema)
-    (id sema (become (if (<= N 0) always-evt (next)))))
+    (values sema (become-evt (if (<= N 0) always-evt (next)))))
 ]
 
 @racketid[guarded-semaphore] returns two values: an actual semaphore for
@@ -311,7 +317,8 @@ synchronization}.
 
 @example[
   (define (channel-dup-evt cs v)
-    ($ async-void-evt (map (<< channel-put-evt v) cs)))
+    (apply async-void-evt
+           (map (curryr channel-put-evt v) cs)))
 ]
 
 @example[
@@ -319,10 +326,10 @@ synchronization}.
   (code:line
    (define ts
      (for/list ([ch chs] [i 5]) (code:comment "read many times")
-       (thread (λ () (writeln (:: i (channel-get ch))))))))
+       (thread (λ () (writeln (cons i (channel-get ch))))))))
   (code:line
-   (sync (*> (channel-dup-evt chs 'X) (code:comment "write once")
-             ($ async-void-evt ts))))
+   (sync (replace-evt (channel-dup-evt chs 'X) (code:comment "write once")
+                      (λ _ (apply async-void-evt ts)))))
 ]
 
 @; -----------------------------------------------------------------------------
@@ -336,10 +343,10 @@ synchronization}.
 Close over a counter and increment it once per sync.
 
 @example[
-  (define nat (let ([n 0]) (event (begin0 n (set! n (add1 n))))))
-  (sync nat)
-  (sync nat)
-  (sync nat)
+  (define nats (let ([n 0]) (event (begin0 n (set! n (add1 n))))))
+  (sync nats)
+  (sync nats)
+  (sync nats)
 ]
 
 @; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -349,54 +356,58 @@ Close over a counter and increment it once per sync.
 The ``hello world'' of recursion.
 
 @example[
-  (define (naive-fib n)
+  (define (naive-fibs n)
     (case n
       [(0) (event 0)]
       [(1) (event 1)]
-      [else (do (a) <- (naive-fib (- n 1))
-                (b) <- (naive-fib (- n 2))
-                (return (+ a b)))]))
+      [else (replace-evt
+             (async-values-evt (naive-fibs (- n 1))
+                               (naive-fibs (- n 2)))
+             (λ (a b) (event (+ a b))))]))
 ]
 
 The naive implementation is very slow.
 
 @example[
   (eval:alts
-   (time (sync (naive-fib 29)))
+   (time (sync (naive-fibs 29)))
    (eval:result
     (racketresult 514229)
-    "cpu time: 5826 real time: 5831 gc time: 1004"
+    "cpu time: 164650 real time: 167406 gc time: 13820"
     ""))
 ]
 
-This one is much faster:
+We can make it faster with dynamic programming:
 
 @example[
-  (define fib
+  (define dynamic-fibs
     (let ([a 1] [b 0])
-      (event (begin0 b (set!-values (a b) (id (+ a b) a))))))
+      (event (begin0 b (set!-values (a b) (values (+ a b) a))))))
 ]
 
 @example[
-  (time (last (sync ($ list-evt (make-list 30 fib)))))
+  (let ([evt (apply list-evt (make-list 30 dynamic-fibs))])
+    (time (last (sync evt))))
 ]
 
-@racketid[fib] can be combined with @racketid[nat] to build an index.
+@racketid[dynamic-fibs] can be combined with @racketid[nats] to build an
+index.
 
 @example[
   #:hidden
-  (set! nat (let ([n 0]) (event (begin0 n (set! n (add1 n))))))
-  (set! fib (let ([a 1] [b 0])
-              (event (begin0 b (set!-values (a b) (id (+ a b) a))))))
+  (set! nats (let ([n 0]) (event (begin0 n (set! n (add1 n))))))
+  (set! dynamic-fibs
+    (let ([a 1] [b 0])
+      (event (begin0 b (set!-values (a b) (values (+ a b) a))))))
 ]
 
 @example[
   (define fibs (make-hash))
-  (sync ($ async-void-evt
-           (make-list
-            30 (do (n) <- nat
-                   (f) <- fib
-                   (return (hash-set! fibs n f))))))
+  (sync
+   (apply async-void-evt
+          (make-list 30 (handle-evt
+                         (values-evt nats dynamic-fibs)
+                         (λ (n f) (hash-set! fibs n f))))))
   (hash-ref fibs 29)
 ]
 
@@ -416,6 +427,7 @@ This one is much faster:
   evaluation of the @var[datum]s until a thread synchronizes on it. The
   @rtech{synchronization result} is the evaluation result.
 
+  Example:
   @example[
     (define evt (event (writeln (+ 1 2))))
     (sync evt)
@@ -423,14 +435,14 @@ This one is much faster:
   ]
 }
 
-@defform[(become evt-expr)]{
+@defform[(become-evt expr ... event-expr)]{
 
-  Lifts an event-producing @var[evt-expr] into a @rtech{synchronizable event}
-  that immediately replaces itself with the event produced by @var[evt-expr].
+  Lifts an event-producing @var[event-expr] preceded by any number of
+  arbitrary @var[expr]s into a @rtech{synchronizable event} that immediately
+  replaces itself with the event produced by @var[event-expr].
 
-  @example[
-    (sync (become (event 123)))
-  ]
+  Example:
+  @example[(sync (become-evt (event 123)))]
 }
 
 @defproc[(list-evt [evt evt?] ...) evt?]{
@@ -439,20 +451,18 @@ This one is much faster:
   order. The @rtech{synchronization result} is a list of the
   @rtech{synchronization results} of the @var[evt]s.
 
-  @example[
-    (sync (list-evt (event 1) (event 2) (event 3)))
-  ]
+  Example:
+  @example[(sync (list-evt (event 1) (event 2) (event 3)))]
 }
 
-@defproc[(id-evt [evt evt?] ...) evt?]{
+@defproc[(values-evt [evt evt?] ...) evt?]{
 
   Returns a @rtech{synchronizable event} that synchronizes the @var[evt]s in
-  order and then applies @racket[id] to the @rtech{synchronization
+  order and then applies @racket[values] to the @rtech{synchronization
   result}.
 
-  @example[
-    (sync (id-evt (event 1) (event 2) (event 3)))
-  ]
+  Example:
+  @example[(sync (values-evt (event 1) (event 2) (event 3)))]
 }
 
 @defproc[(void-evt [evt evt?] ...) evt?]{
@@ -471,24 +481,24 @@ This one is much faster:
   ]
 }
 
-@defproc[(test-evt [test-evt evt?]
-                   [then-evt evt?]
-                   [else-evt evt?]) evt?]{
+@defproc[(if-evt [test-evt evt?]
+                 [then-evt evt?]
+                 [else-evt evt?]) evt?]{
 
   Returns a @rtech{synchronizable event} that becomes either @var[then-evt] or
   @var[else-evt]. If no value in the @rtech{synchronization result} of
   @var[test-evt] is @racket[#f], it becomes @var[then-evt]. Otherwise, it
   becomes @var[else-evt].
 
+  Example:
   @example[
-  (list
-   (sync (test-evt (event #t) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event #f) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event (id #t #t)) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event (id #t #f)) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event (id #f #t)) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event (id #f #f)) (event 'Tru) (event 'Fls)))
-   (sync (test-evt (event (id)) (event 'Tru) (event 'Fls))))
+    (sync (if-evt (event #t) (event 'Tru) (event 'Fls)))
+    (sync (if-evt (event #f) (event 'Tru) (event 'Fls)))
+    (sync (if-evt (event (values #t #t)) (event 'Tru) (event 'Fls)))
+    (sync (if-evt (event (values #t #f)) (event 'Tru) (event 'Fls)))
+    (sync (if-evt (event (values #f #t)) (event 'Tru) (event 'Fls)))
+    (sync (if-evt (event (values #f #f)) (event 'Tru) (event 'Fls)))
+    (sync (if-evt (event (values)) (event 'Tru) (event 'Fls)))
   ]
 }
 
@@ -500,6 +510,7 @@ This one is much faster:
   the previous @var[f]. The @rtech{synchronization result} is the
   @rtech{synchronization result} of the event generated by the final @var[f].
 
+  Example:
   @example[
     (sync (series-evt
            (event 1)
@@ -509,22 +520,19 @@ This one is much faster:
 }
 
 @defproc[(reduce-evt [f (-> any/c ... evt?)]
-                     [check (-> any/c ... boolean?)]
-                     [v any/c] ...) evt?]{
+                     [v any/c] ...
+                     [#:while pred (-> any/c ... boolean?) (λ _ #t)]) evt?]{
 
   Returns a @rtech{synchronizable event} that applies @var[f] repeatedly,
   starting with @var[v]s and continuing with the @rtech{synchronization
-  result} of the events generated by @var[f].
-
-  Applies @var[check] to the results of @var[f] and becomes @rtech{ready for
-  synchronization} when @var[check] returns @racket[#t].
+  result} of the events generated by @var[f], until @var[pred] returns
+  @racket[#f].
 
   Example:
   @example[
-    (sync (reduce-evt
-           (φ x (event (add1 x)))
-           (λ (x y) (>= y 10))
-           0))
+    (sync (reduce-evt (λ (x) (event (add1 x)))
+                      0
+                      #:while (λ (x) (< x 10))))
   ]
 }
 
@@ -550,7 +558,7 @@ This one is much faster:
 
 @subsection{Concurrent Combinators}
 
-@defproc[(list-set-evt [evt evt?] ...) evt?]{
+@defproc[(list-bag-evt [evt evt?] ...) evt?]{
 
   Returns a @rtech{synchronizable event} that synchronizes all the @var[evt]s
   opportunistically and then returns a list of the @rtech{synchronization
@@ -559,14 +567,14 @@ This one is much faster:
   Example:
   @example[
     (define evt
-      (list-set-evt (event 1) (event 2) (event 3) (event 4) (event 5)))
+      (list-bag-evt (event 1) (event 2) (event 3) (event 4) (event 5)))
     (sync evt)
     (sync evt)
     (sync evt)
   ]
 }
 
-@defproc[(id-set-evt [evt evt?] ...) evt?]{
+@defproc[(values-bag-evt [evt evt?] ...) evt?]{
 
   Returns a @rtech{synchronizable event} that synchronizes all of the
   @var[evt]s opportunistically and then returns all of the
@@ -576,7 +584,7 @@ This one is much faster:
   Example:
   @example[
     (define evt
-      (id-set-evt (event 1) (event 2) (event 3) (event 4) (event 5)))
+      (values-bag-evt (event 1) (event 2) (event 3) (event 4) (event 5)))
     (sync evt)
   ]
 }
@@ -597,7 +605,7 @@ This one is much faster:
   ]
 }
 
-@defproc[(async-id-evt [evt evt?] ...) evt?]{
+@defproc[(async-values-evt [evt evt?] ...) evt?]{
 
   Returns a @rtech{synchronizable event} that synchronizes all of the
   @var[evt]s opportunistically and then returns all of the
@@ -607,7 +615,7 @@ This one is much faster:
   Example:
   @example[
     (define evt
-      (async-id-evt (event 1) (event 2) (event 3) (event 4) (event 5)))
+      (async-values-evt (event 1) (event 2) (event 3) (event 4) (event 5)))
     (sync evt)
   ]
 }
@@ -660,7 +668,7 @@ This one is much faster:
   Example:
   @example[
     (define ch (make-channel))
-    (define ps ($ promises-evt (make-list 10 ch)))
+    (define ps (apply promises-evt (make-list 10 ch)))
     (for ([i 10]) (channel-put ch i))
     (sync ps)
   ]
